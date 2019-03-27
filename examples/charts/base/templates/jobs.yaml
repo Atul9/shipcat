@@ -4,7 +4,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ $v.name }}
-  namespace: {{ $.Release.Namespace }}
+  namespace: {{ .Values.Namespace }}
   labels:
     app: {{ $.Values.name }}
     type: {{ $.Values.type | default "job" }}

@@ -59,6 +59,11 @@ pub struct Team {
     /// Team name
     pub name: String,
 
+    /// Team namespaces
+    /// 
+    /// Used to say which namespaces team apps should be deployed to
+    pub namespace: Option<String>,
+
     /// Code owners for this team
     ///
     /// Used to generate CODEOWNERS merge policies.
@@ -93,6 +98,16 @@ impl Team {
         if self.notifications.is_none() {
             bail!("Every team must have a default notifications channel declared");
         }
+
+        if let Some(namespace) = &self.namespace {
+            use regex::Regex;
+            let re = Regex::new(r"^[a-z\-]{1,30}$").unwrap();
+
+            if !re.is_match(&namespace) {
+                bail!("Valid namespace are lower case alpha with dashes only.")
+            }
+        }
+
         if let Some(va) = &self.vaultAdmins {
             use regex::Regex;
             let re = Regex::new(r"^[a-z\-]{1,30}$").unwrap();

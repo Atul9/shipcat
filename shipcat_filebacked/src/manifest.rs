@@ -88,13 +88,28 @@ impl ManifestSource {
     /// Build a Manifest from a ManifestSource, validating and mutating properties.
     pub fn build(self, conf: &Config, reg: &Region) -> Result<Manifest> {
         let simple = self.build_simple(conf, reg)?;
-        let name = simple.base.name;
+        let name = simple.base.name.clone();
+        let team_name = simple.base.metadata.team.clone();
         let data_handling = self.build_data_handling();
         let kafka = self.build_kafka(&name, reg);
         let configs = self.build_configs(&name)?;
 
         let overrides = self.overrides;
         let defaults = overrides.defaults;
+
+        // Merge the region and team namespace:
+        // reg ns | team found | namespace set | output
+        // yes    | yes        | yes           | team namespace
+        // yes    | yes        | no            | region namespace
+        // yes    | no         | no            | region namespace
+        let namespace = match conf.teams.iter().find(|t| t.name == team_name) {
+            Some(t) => match t.namespace.clone() {
+                Some(n) => n,
+                None => reg.namespace.clone(),
+            },
+            None => reg.namespace.clone(),
+        };
+
         Ok(Manifest {
             name,
             publiclyAccessible: overrides.publicly_accessible.unwrap_or_default(),
@@ -158,7 +173,7 @@ impl ManifestSource {
 
             region: reg.name.clone(),
             environment: reg.environment.to_string(),
-            namespace: reg.namespace.clone(),
+            namespace: namespace,
             secrets: Default::default(),
             kind: Default::default(),
         })
@@ -249,7 +264,7 @@ impl ManifestSource {
         let original = &self.overrides.kafka;
         original.clone().map(|mut kf| {
             kf.implicits(service, reg.clone());
-            kf
+            kf 
         })
     }
 

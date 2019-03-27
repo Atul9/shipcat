@@ -2,7 +2,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: {{ .Values.name }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Values.Namespace }}
   labels:
     app: {{ .Values.name }}
     type: {{ .Values.type | default "service" }}
