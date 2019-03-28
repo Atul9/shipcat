@@ -36,6 +36,13 @@ Check generated kube yaml:
 ```sh
 shipcat template webapp
 ```
+
+Diff the current kube yaml with what is on the server using an external diff tool (requires kubectl 1.13 or above)
+
+```sh
+shipcat template webapp -s | KUBECTL_EXTERNAL_DIFF=meld  kubectl diff -f -
+```
+
 ## Set up tiller
 We set up a somewhat restricted tiller in the `apps` namespace:
 
