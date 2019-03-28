@@ -4,7 +4,7 @@ apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
   name: {{ $v.name }}
-  namespace: {{ .Values.Namespace }}
+  namespace: {{ .Values.namespace }}
   labels:
     app: {{ $.Values.name }}
     type: {{ $.Values.type | default "service" }}
