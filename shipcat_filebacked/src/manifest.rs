@@ -89,26 +89,13 @@ impl ManifestSource {
     pub fn build(self, conf: &Config, reg: &Region) -> Result<Manifest> {
         let simple = self.build_simple(conf, reg)?;
         let name = simple.base.name.clone();
-        let team_name = simple.base.metadata.team.clone();
+        let namespace = self.coalesce_namespace(conf, reg, simple.base.metadata.team.clone());
         let data_handling = self.build_data_handling();
         let kafka = self.build_kafka(&name, reg);
         let configs = self.build_configs(&name)?;
 
         let overrides = self.overrides;
         let defaults = overrides.defaults;
-
-        // Merge the region and team namespace:
-        // reg ns | team found | namespace set | output
-        // yes    | yes        | yes           | team namespace
-        // yes    | yes        | no            | region namespace
-        // yes    | no         | no            | region namespace
-        let namespace = match conf.teams.iter().find(|t| t.name == team_name) {
-            Some(t) => match t.namespace.clone() {
-                Some(n) => n,
-                None => reg.namespace.clone(),
-            },
-            None => reg.namespace.clone(),
-        };
 
         Ok(Manifest {
             name,
@@ -177,6 +164,24 @@ impl ManifestSource {
             secrets: Default::default(),
             kind: Default::default(),
         })
+    }
+
+    /// Coalesce the namespace from team and region definitions in Shipcat.conf
+    /// assumes the region will always have a namespace to fallback on
+    /// 
+    /// region namespace set | team exists | team namespace set | output
+    /// ---------------------+-------------+--------------------+---------------
+    /// yes                  | yes         | yes                | team namespace
+    /// yes                  | yes         | no                 | region namespace
+    /// yes                  | no          | no                 | region namespace
+    fn coalesce_namespace(&self, conf: &Config, reg: &Region, team_name: String) -> String {
+        match conf.teams.iter().find(|t| t.name == team_name) {
+            Some(t) => match t.namespace.clone() {
+                Some(n) => n,
+                None => reg.namespace.clone(),
+            },
+            None => reg.namespace.clone(),
+        }
     }
 
     pub fn build_simple(&self, conf: &Config, region: &Region) -> Result<SimpleManifest> {
