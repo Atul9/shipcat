@@ -37,7 +37,7 @@ Check generated kube yaml:
 shipcat template webapp
 ```
 
-Diff the current kube yaml with what is on the server using an external diff tool (requires kubectl 1.13 or above)
+Diff the current kube yaml with what is on the server using an external diff tool (requires kubectl 1.13+)
 
 ```sh
 shipcat template webapp -s | KUBECTL_EXTERNAL_DIFF=meld  kubectl diff -f -
@@ -59,7 +59,7 @@ shipcat apply blog
 
 If you would like to deploy using `kubectl`, or drop `tiller`, you could apply directly:
 
-Verify if apply is possible (see [APIServer dry-run](https://kubernetes.io/blog/2019/01/14/apiserver-dry-run-and-kubectl-diff/))
+Verify if apply is possible requires kubernetes 1.13+ (see [APIServer dry-run](https://kubernetes.io/blog/2019/01/14/apiserver-dry-run-and-kubectl-diff/))
 ```sh
 shipcat template webapp -s | kubectl apply --server-dry-run --prune -lapp=webapp -f -
 ```
