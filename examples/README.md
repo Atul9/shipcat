@@ -59,6 +59,12 @@ shipcat apply blog
 
 If you would like to deploy using `kubectl`, or drop `tiller`, you could apply directly:
 
+Verify if apply is possible (see [APIServer dry-run](https://kubernetes.io/blog/2019/01/14/apiserver-dry-run-and-kubectl-diff/))
+```sh
+shipcat template webapp -s | kubectl apply --server-dry-run --prune -lapp=webapp -f -
+```
+
+Apply the changes
 ```sh
 shipcat template -s blog | kubectl apply --prune -lapp=blog -f -
 ```
