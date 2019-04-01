@@ -88,7 +88,7 @@ pub struct ManifestDefaults {
 impl ManifestSource {
     /// Build a Manifest from a ManifestSource, validating and mutating properties.
     pub fn build(self, conf: &Config, region: &Region) -> Result<Manifest> {
-        let simple = self.build_simple(conf, reg)?;
+        let simple = self.build_simple(conf, region)?;
         let name = simple.base.name.clone();
         let namespace = self.coalesce_namespace(conf, region, simple.base.metadata.team.clone());
         let data_handling = self.build_data_handling();
@@ -158,7 +158,7 @@ impl ManifestSource {
             kafka: kafka,
             sourceRanges: overrides.source_ranges.unwrap_or_default(),
             rbac: overrides.rbac.unwrap_or_default(),
-            region: reg.name.clone(),
+            region: region.name.clone(),
             environment: region.environment.to_string(),
             namespace: namespace,
             secrets: Default::default(),
@@ -169,19 +169,22 @@ impl ManifestSource {
     /// Coalesce the namespace from team and region definitions in Shipcat.conf
     /// assumes the region will always have a namespace to fallback on
     /// 
-    /// region namespace set | team exists | team namespace set | output
-    /// ---------------------+-------------+--------------------+---------------
-    /// yes                  | yes         | yes                | team namespace
-    /// yes                  | yes         | no                 | region namespace
-    /// yes                  | no          | no                 | region namespace
+    /// Sets the namespace to the team namespace if and only if the following conditions are met
+    /// - region enableTeamNamespace is set to true
+    /// - team exists
+    /// - team namespace is set
     fn coalesce_namespace(&self, conf: &Config, region: &Region, team_name: String) -> String {
-        match conf.teams.iter().find(|t| t.name == team_name) {
-            Some(t) => match t.namespace.clone() {
-                Some(n) => n,
-                None => region.namespace.clone(),
+
+        match region.enableTeamNamespace {
+            Some(true) => match conf.teams.iter().find(|t| t.name == team_name) {
+                Some(team) => match team.namespace.clone() {
+                    Some(namespace) => namespace,
+                    _ => region.namespace.clone(),
+                },
+                _ => region.namespace.clone(),
             },
-            None => region.namespace.clone(),
-        }
+            _ => region.namespace.clone(),
+        } 
     }
 
     pub fn build_simple(&self, conf: &Config, region: &Region) -> Result<SimpleManifest> {

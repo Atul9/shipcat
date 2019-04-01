@@ -514,6 +514,9 @@ pub struct Region {
     /// Default values for services
     #[serde(skip_serializing, default)]
     pub defaults: DefaultConfig,
+
+    /// Enable team namespaces for region
+    pub enableTeamNamespace: Option<bool>
 }
 
 impl Region {
