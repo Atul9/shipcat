@@ -424,7 +424,7 @@ mod test_webhooks {
 // ----------------------------------------------------------------------------------
 
 /// Environments are well defined strings
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "lowercase")]
 pub enum Environment {
     /// Production environment
@@ -442,6 +442,12 @@ pub enum Environment {
     Example,
 }
 
+#[cfg(test)]
+impl Default for Environment {
+    fn default() -> Self {
+        Environment::Test
+    }
+}
 
 impl ToString for Environment {
     fn to_string(&self) -> String {
