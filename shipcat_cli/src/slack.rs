@@ -214,7 +214,7 @@ fn contacts_to_text_content(contacts: &Vec<Contact>) -> Vec<SlackTextContent> {
 }
 
 fn infer_slack_notifies(md: &Metadata) -> Vec<SlackTextContent> {
-    contacts_to_text_content(md.contacts)
+    contacts_to_text_content(&md.contacts)
 }
 
 /// Infer originator of a message
