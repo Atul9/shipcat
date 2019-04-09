@@ -40,7 +40,13 @@ impl Default for ManifestDefaults {
     }
 }
 
-
+/// Modes for slack notification
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum NotificationMode {
+    NotifyMaintainers,
+    MessageOnly(Vec<String>),
+    Silent,
+}
 
 /// Kubernetes cluster information
 #[derive(Serialize, Deserialize, Clone)]
@@ -76,6 +82,9 @@ pub struct Team {
     /// Default notifications channel - automated messages
     #[serde(default)]
     pub notifications: Option<SlackChannel>,
+    /// Slack notification levels for each environment
+    #[serde(default)]
+    pub slackSettings: BTreeMap<Environment, NotificationMode>,
 }
 
 impl Team {

@@ -5,7 +5,7 @@ use semver::Version;
 
 use super::helm::helpers;
 use super::structs::Metadata;
-use super::{Result, ErrorKind, ResultExt};
+use super::{Config, Result, ErrorKind, ResultExt};
 
 /// Slack message options we support
 ///
@@ -55,7 +55,7 @@ pub fn have_credentials() -> Result<()> {
     Ok(())
 }
 
-pub fn send(msg: Message) -> Result<()> {
+pub fn send(msg: Message, conf: &Config) -> Result<()> {
     let hook_chan : String = env_channel()?;
     send_internal(msg.clone(), hook_chan)?;
     if let Some(md) = &msg.metadata {
@@ -158,7 +158,7 @@ fn send_internal(msg: Message, chan: String) -> Result<()> {
     p = p.attachments(ax);
 
     // Send everything. Phew.
-    slack.send(&p.build()?).chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
+    slack.send(&p.build()?).chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;  // TODO: Does it go here?
 
     Ok(())
 }
