@@ -107,7 +107,7 @@ fn handle_upgrade_notifies(us: UpgradeState, ud: &UpgradeData, reg: &Region, con
                   time: grafana::TimeSpec::Now,
               });
             }
-            let _ = slack::send(slack::Message {  // TODO: Does it go here?
+            let _ = slack::send(slack::Message {
                 text, code,
                 color: Some(String::from(color)),
                 version: Some(ud.version.clone()),
@@ -140,7 +140,7 @@ pub fn upgrade_rollback_event(us: UpgradeState, ud: &UpgradeData, reg: &Region, 
     if let Err(e) = match us {
         // UpgradeState::RollingBack => {},
         UpgradeState::Completed | UpgradeState::RolledBack => {
-            let _ = slack::send(slack::Message {  // TODO: Does it go here?
+            let _ = slack::send(slack::Message {
                 text: format!("rolling back `{}` in {}", &ud.name, &ud.region),
                 color: Some("warning".into()),
                 metadata: ud.metadata.clone(),
@@ -155,7 +155,7 @@ pub fn upgrade_rollback_event(us: UpgradeState, ud: &UpgradeData, reg: &Region, 
             })
         },
         UpgradeState::Failed | UpgradeState::RollbackFailed => {
-            slack::send(slack::Message {  // TODO: Does it go here?
+            slack::send(slack::Message {
                 text: format!("failed to rollback `{}` in {}", &ud.name, &ud.region),
                 color: Some("danger".into()),
                 metadata: ud.metadata.clone(),
