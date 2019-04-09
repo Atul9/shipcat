@@ -44,7 +44,7 @@ impl Default for ManifestDefaults {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum NotificationMode {
     NotifyMaintainers,
-    MessageOnly(Vec<String>),
+    MessageOnly(Vec<Contact>),
     Silent,
 }
 

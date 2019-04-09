@@ -113,7 +113,7 @@ fn handle_upgrade_notifies(us: UpgradeState, ud: &UpgradeData, reg: &Region, con
                 version: Some(ud.version.clone()),
                 metadata: ud.metadata.clone(),
                 ..Default::default()
-            }, &conf);
+            }, &conf, &reg.environment);
         }
         _ => {},
     }
@@ -145,7 +145,7 @@ pub fn upgrade_rollback_event(us: UpgradeState, ud: &UpgradeData, reg: &Region, 
                 color: Some("warning".into()),
                 metadata: ud.metadata.clone(),
                 ..Default::default()
-            }, &conf);
+            }, &conf, &reg.environment);
             grafana::create(grafana::Annotation {
                 event: grafana::Event::Rollback,
                 service: ud.name.clone(),
@@ -160,7 +160,7 @@ pub fn upgrade_rollback_event(us: UpgradeState, ud: &UpgradeData, reg: &Region, 
                 color: Some("danger".into()),
                 metadata: ud.metadata.clone(),
                 ..Default::default()
-            }, &conf)
+            }, &conf, &reg.environment)
         },
         _ => { Ok(()) },
     } {
