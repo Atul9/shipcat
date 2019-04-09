@@ -142,13 +142,14 @@ fn send_internal(msg: Message, chan: String, conf: &Config, env: &Environment) -
     // Auto cc users
     if let Some(ref md) = msg.metadata {
         if !msg.quiet {
+            let mut default_notify = || -> () {
+                texts.push(Text("<- ".to_string().into()));
+                texts.extend(infer_slack_notifies(md));
+            };
             if let Some(team) = conf.teams.iter().find(|t| t.name == md.team ) {
                 if let Some(slackSettings) = team.slackSettings.get(&env) {
                     match slackSettings {
-                        NotificationMode::NotifyMaintainers => {
-                            texts.push(Text("<- ".to_string().into()));
-                            texts.extend(infer_slack_notifies(md));
-                        },
+                        NotificationMode::NotifyMaintainers => default_notify(),
                         NotificationMode::MessageOnly(users) => {
                             texts.push(Text("<- ".to_string().into()));
                             texts.extend(contacts_to_text_content(users));
@@ -156,7 +157,9 @@ fn send_internal(msg: Message, chan: String, conf: &Config, env: &Environment) -
                         NotificationMode::Silent => {},
                     }
                 }
+                else { default_notify() }
             }
+            else { default_notify() }
         }
     }
 
