@@ -25,8 +25,9 @@ fn impl_merge(ast: &DeriveInput) -> TokenStream {
         panic!("Only struct types are supported")
     };
 
+    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     let gen = quote! {
-        impl Merge for #name {
+        impl #impl_generics Merge for #name #ty_generics #where_clause {
             fn merge(self, other: Self) -> Self {
                 #body_tokens
             }

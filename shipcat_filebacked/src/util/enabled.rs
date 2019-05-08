@@ -4,10 +4,10 @@ use shipcat_definitions::Result;
 use super::Build;
 
 /// Enabled wraps a struct and adds an `enabled` field.
-#[derive(Deserialize, Default, Clone, PartialEq)]
+#[derive(Deserialize, Default, Clone, PartialEq, Merge)]
 #[cfg_attr(test, derive(Debug, Copy))]
 #[serde(default)]
-pub struct Enabled<T> {
+pub struct Enabled<T: Merge> {
     pub enabled: Option<bool>,
 
     #[serde(flatten)]
@@ -15,20 +15,11 @@ pub struct Enabled<T> {
 }
 
 /// Builds the inner struct unless enabled is explicitly false.
-impl<S: Build<B, P>, B, P> Build<Option<B>, P> for Enabled<S> {
+impl<S: Build<B, P> + Merge, B, P> Build<Option<B>, P> for Enabled<S> {
     fn build(self, params: &P) -> Result<Option<B>> {
         match self.enabled {
             Some(false) => Ok(None),
             _ => Ok(Some(self.item.build(params)?)),
-        }
-    }
-}
-
-impl<T: Merge> Merge for Enabled<T> {
-    fn merge(self, other: Self) -> Self {
-        Self {
-            enabled: self.enabled.merge(other.enabled),
-            item: self.item.merge(other.item),
         }
     }
 }
