@@ -40,6 +40,12 @@ mod tests {
         }
     }
 
+    impl Merge for Item {
+        fn merge(self, _: Self) -> Self {
+            panic!("Not implemented: unused by tests");
+        }
+    }
+
     #[test]
     fn build() {
         let source = Enabled {
