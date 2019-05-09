@@ -27,11 +27,10 @@ cargo run -p raftcat
 ```
 
 From the shipcat root directory.
-Export the vault secrets and manifest evars (provided you have manifests):
+Export the vault secrets and manifest evars (provided you have raftcat in your manifests):
 
 ```sh
-source <(shipcat values raftcat -s | yq '.secrets | keys[] as $k | "export \($k)=\(.[$k])"' -r)
-source <(shipcat values raftcat | yq '.env.plain | keys[] as $k | "export \($k)=\(.[$k])"' -r)
+source <(shipcat env raftcat)
 ```
 
 ## Integrations
