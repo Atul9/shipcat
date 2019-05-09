@@ -1,12 +1,12 @@
 mod container;
 mod env;
-mod resources;
 mod image;
+mod resources;
 
 pub use container::ContainerBuildParams;
 pub use env::EnvVarsSource;
-pub use resources::ResourceRequirementsSource;
 pub use image::{ImageNameSource, ImageTagSource};
+pub use resources::ResourceRequirementsSource;
 
 mod cronjob;
 mod initcontainer;

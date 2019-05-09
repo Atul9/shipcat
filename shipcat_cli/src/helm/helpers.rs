@@ -1,15 +1,15 @@
 use serde_yaml;
 
+use super::Result;
 use regex::Regex;
-use super::{Result};
-
 
 pub fn diff_format(diff: String) -> String {
     let diff_re = Regex::new(r"has changed|^\-|^\+").unwrap();
     // filter out lines that doesn't contain "has changed" or starting with + or -
-    diff.split('\n').filter(|l| {
-        diff_re.is_match(l)
-    }).collect::<Vec<_>>().join("\n")
+    diff.split('\n')
+        .filter(|l| diff_re.is_match(l))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 pub fn diff_is_version_only(diff: &str, vers: (&str, &str)) -> bool {
@@ -33,9 +33,10 @@ pub fn diff_is_version_only(diff: &str, vers: (&str, &str)) -> bool {
 /// Infer a version change diff and extract old version and new version
 pub fn infer_version_change(diff: &str) -> Option<(String, String)> {
     let img_re = Regex::new(r"[^:]+:(?P<version>[a-z0-9\.\-]+)").unwrap();
-    let res = img_re.captures_iter(diff).map(|cap| {
-        cap["version"].to_string()
-    }).collect::<Vec<String>>();
+    let res = img_re
+        .captures_iter(diff)
+        .map(|cap| cap["version"].to_string())
+        .collect::<Vec<String>>();
     if res.len() >= 2 {
         return Some((res[0].clone(), res[1].clone()));
     }
@@ -77,8 +78,8 @@ pub fn hout(args: Vec<String>) -> Result<(String, String, bool)> {
     use std::process::Command;
     debug!("helm {}", args.join(" "));
     let s = Command::new("helm").args(&args).output()?;
-    let out : String = String::from_utf8_lossy(&s.stdout).into();
-    let err : String = String::from_utf8_lossy(&s.stderr).into();
+    let out: String = String::from_utf8_lossy(&s.stdout).into();
+    let err: String = String::from_utf8_lossy(&s.stderr).into();
     Ok((out, err, s.status.success()))
 }
 
@@ -94,22 +95,20 @@ pub fn find_redundant_services(ns: &str, svcs: &[String]) -> Result<Vec<String>>
     let lsargs = vec![
         format!("--tiller-namespace={}", ns),
         "ls".into(),
-        "-q".into()
+        "-q".into(),
     ];
     debug!("helm {}", lsargs.join(" "));
-    let found : HashSet<_> = match hout(lsargs.clone()) {
+    let found: HashSet<_> = match hout(lsargs.clone()) {
         Ok((vout, verr, true)) => {
             if !verr.is_empty() {
-                warn!("helm {} stderr: {}",  lsargs.join(" "), verr);
+                warn!("helm {} stderr: {}", lsargs.join(" "), verr);
             }
             // we should have a helm ls -q output:
             vout.lines().into_iter().map(String::from).collect()
         }
-        _ => {
-            bail!("No services found in {} tiller", ns)
-        }
+        _ => bail!("No services found in {} tiller", ns),
     };
-    let excess : HashSet<_> = found.difference(&requested).collect();
+    let excess: HashSet<_> = found.difference(&requested).collect();
     if !excess.is_empty() {
         warn!("Found extraneous helm services: {:?}", excess);
     } else {
@@ -135,9 +134,9 @@ pub fn infer_fallback_version(service: &str, ns: &str) -> Result<String> {
             }
             // if we got this far, release was found
             // it should work to parse the HelmVals subset of the values:
-            let values : HelmVals = serde_yaml::from_str(&vout.to_owned())?;
+            let values: HelmVals = serde_yaml::from_str(&vout.to_owned())?;
             Ok(values.version)
-        },
+        }
         _ => {
             // nothing from helm
             bail!("Service {} not found in in {} tiller", service, ns);
@@ -145,10 +144,9 @@ pub fn infer_fallback_version(service: &str, ns: &str) -> Result<String> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use super::{infer_version_change, diff_is_version_only};
+    use super::{diff_is_version_only, infer_version_change};
 
     #[test]
     fn version_change_test() {

@@ -39,8 +39,8 @@ pub fn setup() {
     });
 }
 
-use shipcat_definitions::{Config, Environment}; // Product
 use shipcat_definitions::ConfigType;
+use shipcat_definitions::{Config, Environment}; // Product
 
 #[test]
 fn config_test() {
@@ -71,16 +71,25 @@ fn config_defaults_test() {
     // -- Slack channels --
 
     // fake-ask gets default for 'devops'
-    let mfdefault = shipcat_filebacked::load_manifest("fake-ask", &conf, &reg).unwrap().complete(&reg).unwrap();
+    let mfdefault = shipcat_filebacked::load_manifest("fake-ask", &conf, &reg)
+        .unwrap()
+        .complete(&reg)
+        .unwrap();
     let metadata = mfdefault.metadata.unwrap();
     assert_eq!(*metadata.support.unwrap(), "#devops-support");
     assert_eq!(*metadata.notifications.unwrap(), "#devops-notifications");
 
     // fake-storage overrides for 'someteam'
-    let mfoverride = shipcat_filebacked::load_manifest("fake-storage", &conf, &reg).unwrap().complete(&reg).unwrap();
+    let mfoverride = shipcat_filebacked::load_manifest("fake-storage", &conf, &reg)
+        .unwrap()
+        .complete(&reg)
+        .unwrap();
     let metadata = mfoverride.metadata.unwrap();
     assert_eq!(*metadata.support.unwrap(), "#dev-platform-override");
-    assert_eq!(*metadata.notifications.unwrap(), "#dev-platform-notif-override");
+    assert_eq!(
+        *metadata.notifications.unwrap(),
+        "#dev-platform-notif-override"
+    );
 }
 
 /*#[test]
@@ -164,7 +173,10 @@ fn manifest_test() {
 fn templating_test() {
     setup();
     let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
-    let mf = shipcat_filebacked::load_manifest("fake-ask", &conf, &reg).unwrap().complete(&reg).unwrap();
+    let mf = shipcat_filebacked::load_manifest("fake-ask", &conf, &reg)
+        .unwrap()
+        .complete(&reg)
+        .unwrap();
 
     // verify templating
     let env = mf.env.plain;
@@ -225,7 +237,6 @@ fn templating_test() {
     assert!(cfgtpl.contains("CLIENT_ID"));
     assert!(cfgtpl.contains("CLIENT_ID=FAKEASKID"));
 }
-
 
 #[test]
 fn vault_policy_test() {

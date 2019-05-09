@@ -12,14 +12,14 @@ mod authorization;
 mod container;
 mod manifest;
 mod simple;
-pub use crate::simple::{SimpleManifest};
+pub use crate::simple::SimpleManifest;
 mod kong;
 
 mod load;
 mod util;
 
 use manifest::ManifestSource;
-use shipcat_definitions::{Config, Manifest, Region, Result, BaseManifest};
+use shipcat_definitions::{BaseManifest, Config, Manifest, Region, Result};
 
 pub fn load_manifest(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
     ManifestSource::load_manifest(service, conf, reg)

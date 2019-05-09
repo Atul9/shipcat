@@ -1,13 +1,16 @@
 mod common;
 use crate::common::setup;
-use shipcat_definitions::{Config, ConfigType};
 use shipcat::helm::values;
+use shipcat_definitions::{Config, ConfigType};
 
 #[test]
 fn helm_values() {
     setup();
     let (conf, reg) = Config::new(ConfigType::Base, "dev-uk").unwrap();
-    let mf = shipcat_filebacked::load_manifest("fake-ask", &conf, &reg).unwrap().stub(&reg).unwrap();
+    let mf = shipcat_filebacked::load_manifest("fake-ask", &conf, &reg)
+        .unwrap()
+        .stub(&reg)
+        .unwrap();
     if let Err(e) = values(&mf, None) {
         println!("Failed to create helm values for fake-ask");
         print!("{}", e);

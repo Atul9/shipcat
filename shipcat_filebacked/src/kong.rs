@@ -1,9 +1,9 @@
 use merge::Merge;
 use std::collections::BTreeMap;
 
+use shipcat_definitions::deserializers::CommaSeparatedString;
 use shipcat_definitions::structs::{Authentication, Authorization, BabylonAuthHeader, Cors, Kong};
 use shipcat_definitions::{Region, Result};
-use shipcat_definitions::deserializers::{CommaSeparatedString};
 
 use super::authorization::AuthorizationSource;
 use super::util::{Build, Enabled};
@@ -51,7 +51,11 @@ pub struct KongBuildParams {
 impl Build<Option<Kong>, KongBuildParams> for KongSource {
     /// Build a Kong from a KongSource, validating and mutating properties.
     fn build(self, params: &KongBuildParams) -> Result<Option<Kong>> {
-        let KongBuildParams { region, service, hosts } = params;
+        let KongBuildParams {
+            region,
+            service,
+            hosts,
+        } = params;
         let hosts = self.build_hosts(&region.kong.base_url, hosts.clone().unwrap_or_default())?;
 
         if hosts.is_empty() && self.uris.is_none() {
@@ -59,7 +63,8 @@ impl Build<Option<Kong>, KongBuildParams> for KongSource {
         }
 
         let upstream_url = self.build_upstream_url(&service, &region.namespace);
-        let (auth, authorization) = KongSource::build_auth(self.auth, self.unauthenticated, self.authorization)?;
+        let (auth, authorization) =
+            KongSource::build_auth(self.auth, self.unauthenticated, self.authorization)?;
 
         if authorization.is_some() {
             if self.cookie_auth.is_some() {
@@ -112,12 +117,12 @@ impl KongSource {
         }
     }
 
-    fn build_auth(auth: Option<Authentication>, unauthenticated: Option<bool>, authz: Enabled<AuthorizationSource>) -> Result<(Authentication, Option<Authorization>)> {
-        match (
-            auth,
-            unauthenticated.unwrap_or(false),
-            authz.build(&())?,
-        ) {
+    fn build_auth(
+        auth: Option<Authentication>,
+        unauthenticated: Option<bool>,
+        authz: Enabled<AuthorizationSource>,
+    ) -> Result<(Authentication, Option<Authorization>)> {
+        match (auth, unauthenticated.unwrap_or(false), authz.build(&())?) {
             // unauthenticated is true
             (None, true, None) => Ok((Authentication::None, None)),
             (Some(_), true, _) => {

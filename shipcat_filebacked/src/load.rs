@@ -7,10 +7,10 @@ use serde::de::DeserializeOwned;
 use shipcat_definitions::{Config, Manifest, Region, Result};
 use walkdir::WalkDir;
 
-use crate::manifest::{ManifestDefaults, ManifestOverrides, ManifestSource};
-use super::{SimpleManifest, BaseManifest};
-use super::authorization::{AuthorizationSource};
+use super::authorization::AuthorizationSource;
 use super::util::{Build, Enabled};
+use super::{BaseManifest, SimpleManifest};
+use crate::manifest::{ManifestDefaults, ManifestOverrides, ManifestSource};
 
 impl ManifestSource {
     pub fn load_manifest(service: &str, conf: &Config, reg: &Region) -> Result<Manifest> {
@@ -57,7 +57,7 @@ impl ManifestSource {
     }
 
     fn all_names() -> Vec<String> {
-        let mut res : Vec<_> = WalkDir::new(&ManifestSource::services_dir())
+        let mut res: Vec<_> = WalkDir::new(&ManifestSource::services_dir())
             .min_depth(1)
             .max_depth(1)
             .into_iter()
@@ -105,7 +105,6 @@ impl ManifestSource {
 }
 
 impl ManifestDefaults {
-
     fn from_global(conf: &Config) -> Result<Self> {
         let mut defs = Self::default();
         defs.chart = Option::Some(conf.defaults.chart.clone());
@@ -165,10 +164,10 @@ where
 mod tests {
     use std::env;
     use std::fs;
-    use std::path::{Path};
+    use std::path::Path;
 
-    use shipcat_definitions::{Config};
-    use super::{ManifestSource};
+    use super::ManifestSource;
+    use shipcat_definitions::Config;
 
     fn setup() {
         let pwd = env::current_dir().unwrap();
@@ -197,7 +196,10 @@ mod tests {
         let manifest = ManifestSource::load_metadata("fake-ask", &conf, &region).unwrap();
         assert_eq!(manifest.base.name, "fake-ask".to_string());
         assert_eq!(manifest.version, Some("1.6.0".into()));
-        assert_eq!(manifest.image, Some("quay.io/babylonhealth/fake-ask".into()));
+        assert_eq!(
+            manifest.image,
+            Some("quay.io/babylonhealth/fake-ask".into())
+        );
     }
 
     #[test]

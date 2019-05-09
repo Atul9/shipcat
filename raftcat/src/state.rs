@@ -1,10 +1,10 @@
 use failure::err_msg;
-use tera::compile_templates;
 use kube::{
+    api::{ApiResource, Reflector, ResourceMap},
     client::APIClient,
     config::Configuration,
-    api::{Reflector, ResourceMap, ApiResource},
 };
+use tera::compile_templates;
 
 use std::{
     collections::BTreeMap,
@@ -13,12 +13,12 @@ use std::{
     time::Duration,
 };
 
-use crate::*;
 use crate::integrations::{
     newrelic::{self, RelicMap},
     sentryapi::{self, SentryMap},
     version::{self, VersionMap},
 };
+use crate::*;
 
 /// The canonical shared state for actix
 ///
@@ -95,7 +95,7 @@ impl State {
         let cfg = self.get_config()?;
         match cfg.get_region(&self.region) {
             Ok(r) => Ok(r),
-            Err(e) => bail!("could not resolve cluster for {}: {}", self.region, e)
+            Err(e) => bail!("could not resolve cluster for {}: {}", self.region, e),
         }
     }
     pub fn get_manifest(&self, key: &str) -> Result<Option<Manifest>> {
@@ -105,9 +105,13 @@ impl State {
         Ok(None)
     }
     pub fn get_manifests_for(&self, team: &str) -> Result<Vec<String>> {
-        let mfs = self.manifests.read()?.iter()
+        let mfs = self
+            .manifests
+            .read()?
+            .iter()
             .filter(|(_k, mf)| mf.metadata.clone().unwrap().team == team)
-            .map(|(_k, mf)| mf.name.clone()).collect();
+            .map(|(_k, mf)| mf.name.clone())
+            .collect();
         Ok(mfs)
     }
     pub fn get_reverse_deps(&self, service: &str) -> Result<Vec<String>> {
@@ -126,7 +130,11 @@ impl State {
         self.sentries.get(service).map(String::to_owned)
     }
     pub fn get_version(&self, service: &str) -> Option<String> {
-        self.versions.read().unwrap().get(service).map(String::to_owned)
+        self.versions
+            .read()
+            .unwrap()
+            .get(service)
+            .map(String::to_owned)
     }
 
     // Interface for internal thread
@@ -146,7 +154,7 @@ impl State {
                 Ok(res) => {
                     self.sentries = res;
                     info!("Loaded {} sentry slugs", self.sentries.len());
-                },
+                }
                 Err(e) => warn!("Unable to load sentry slugs: {}", err_msg(e)),
             }
         } else {
@@ -156,7 +164,7 @@ impl State {
             Ok(res) => {
                 self.relics = res;
                 info!("Loaded {} newrelic links", self.relics.len());
-            },
+            }
             Err(e) => warn!("Unable to load newrelic projects. {}", err_msg(e)),
         }
         Ok(())

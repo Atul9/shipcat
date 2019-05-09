@@ -1,8 +1,8 @@
-use shipcat_definitions::{Config, Region, Team, BaseManifest, ReconciliationMode};
-use shipcat_filebacked::{SimpleManifest};
 use super::helm::{self, UpgradeMode};
-use super::{Result};
+use super::Result;
 use crate::webhooks;
+use shipcat_definitions::{BaseManifest, Config, ReconciliationMode, Region, Team};
+use shipcat_filebacked::SimpleManifest;
 
 /// Helm upgrade the region (reconcile)
 ///
@@ -28,24 +28,37 @@ fn mass_helm(conf: &Config, region: &Region, umode: UpgradeMode, n_workers: usiz
     let mut svcs = vec![];
     for svc in shipcat_filebacked::available(conf, region)? {
         debug!("Scanning service {:?}", svc);
-        svcs.push(shipcat_filebacked::load_manifest(&svc.base.name, conf, region)?);
+        svcs.push(shipcat_filebacked::load_manifest(
+            &svc.base.name,
+            conf,
+            region,
+        )?);
     }
     helm::parallel::reconcile(svcs, conf, region, umode, n_workers)
 }
-
 
 /// Apply all crds in a region
 ///
 /// Temporary helper that shells out to kubectl apply in parallel.
 /// This will go away with catapult.
 pub fn mass_crd(conf: &Config, reg: &Region, n_workers: usize) -> Result<()> {
-    crd_reconcile(shipcat_filebacked::available(conf, reg)?, conf, reg, n_workers)
+    crd_reconcile(
+        shipcat_filebacked::available(conf, reg)?,
+        conf,
+        reg,
+        n_workers,
+    )
 }
 
 use super::kube;
-fn crd_reconcile(svcs: Vec<SimpleManifest>, config: &Config, region: &Region, n_workers: usize) -> Result<()> {
-    use threadpool::ThreadPool;
+fn crd_reconcile(
+    svcs: Vec<SimpleManifest>,
+    config: &Config,
+    region: &Region,
+    n_workers: usize,
+) -> Result<()> {
     use std::sync::mpsc::channel;
+    use threadpool::ThreadPool;
 
     // Reconcile CRDs (definition itself)
     use shipcat_definitions::gen_all_crds;
@@ -68,7 +81,10 @@ fn crd_reconcile(svcs: Vec<SimpleManifest>, config: &Config, region: &Region, n_
 
     let n_jobs = svcs.len();
     let pool = ThreadPool::new(n_workers);
-    info!("Starting {} parallel kube jobs using {} workers", n_jobs, n_workers);
+    info!(
+        "Starting {} parallel kube jobs using {} workers",
+        n_jobs, n_workers
+    );
 
     // then parallel apply the remaining ones
     let (tx, rx) = channel();
@@ -80,21 +96,27 @@ fn crd_reconcile(svcs: Vec<SimpleManifest>, config: &Config, region: &Region, n_
         pool.execute(move || {
             debug!("Running CRD reconcile for {:?}", svc);
             let res = crd_reconcile_worker(&svc.base.name, &conf, &reg);
-            tx.send(res).expect("channel will be there waiting for the pool");
+            tx.send(res)
+                .expect("channel will be there waiting for the pool");
         });
     }
     // wait for threads collect errors
-    let res = rx.iter().take(n_jobs).map(|r| {
-        match r {
-            Ok(_) => {},
-            Err(ref e) => warn!("error: {}", e),
-        }
-        r
-    }).filter_map(Result::err).collect::<Vec<_>>();
+    let res = rx
+        .iter()
+        .take(n_jobs)
+        .map(|r| {
+            match r {
+                Ok(_) => {}
+                Err(ref e) => warn!("error: {}", e),
+            }
+            r
+        })
+        .filter_map(Result::err)
+        .collect::<Vec<_>>();
     // propagate first non-ignorable error if exists
     if let Some(e) = res.into_iter().next() {
         // no errors ignoreable atm
-        return Err(e)
+        return Err(e);
     }
     Ok(())
 }
@@ -146,13 +168,21 @@ pub fn mass_vault(conf: &Config, reg: &Region, n_workers: usize) -> Result<()> {
     vault_reconcile(svcs, &conf, reg, n_workers)
 }
 
-fn vault_reconcile(mfs: Vec<BaseManifest>, conf: &Config, region: &Region, n_workers: usize) -> Result<()> {
-    use threadpool::ThreadPool;
+fn vault_reconcile(
+    mfs: Vec<BaseManifest>,
+    conf: &Config,
+    region: &Region,
+    n_workers: usize,
+) -> Result<()> {
     use std::sync::mpsc::channel;
+    use threadpool::ThreadPool;
 
     let n_jobs = conf.teams.len();
     let pool = ThreadPool::new(n_workers);
-    info!("Starting {} parallel vault jobs using {} workers", n_jobs, n_workers);
+    info!(
+        "Starting {} parallel vault jobs using {} workers",
+        n_jobs, n_workers
+    );
 
     // then parallel apply the remaining ones
     let (tx, rx) = channel();
@@ -163,33 +193,41 @@ fn vault_reconcile(mfs: Vec<BaseManifest>, conf: &Config, region: &Region, n_wor
         pool.execute(move || {
             debug!("Running vault reconcile for {}", t.name);
             let res = vault_reconcile_worker(mfs, t, reg);
-            tx.send(res).expect("channel will be there waiting for the pool");
+            tx.send(res)
+                .expect("channel will be there waiting for the pool");
         });
     }
     // wait for threads collect errors
-    let res = rx.iter().take(n_jobs).map(|r| {
-        match r {
-            Ok(_) => {},
-            Err(ref e) => warn!("error: {}", e),
-        }
-        r
-    }).filter_map(Result::err).collect::<Vec<_>>();
+    let res = rx
+        .iter()
+        .take(n_jobs)
+        .map(|r| {
+            match r {
+                Ok(_) => {}
+                Err(ref e) => warn!("error: {}", e),
+            }
+            r
+        })
+        .filter_map(Result::err)
+        .collect::<Vec<_>>();
     // propagate first non-ignorable error if exists
     if let Some(e) = res.into_iter().next() {
         // no errors ignoreable atm
-        return Err(e)
+        return Err(e);
     }
     Ok(())
 }
 
 fn vault_reconcile_worker(svcs: Vec<BaseManifest>, team: Team, reg: Region) -> Result<()> {
-    use std::path::Path;
     use std::fs::File;
     use std::io::Write;
+    use std::path::Path;
     //let root = std::env::var("SHIPCAT_MANIFEST_DIR").expect("needs manifest directory set");
     if let Some(admins) = team.clone().githubAdmins {
         // TODO: validate that the github team exists?
-        let policy = reg.vault.make_policy(svcs, team.clone(), reg.environment.clone())?;
+        let policy = reg
+            .vault
+            .make_policy(svcs, team.clone(), reg.environment.clone())?;
         debug!("Vault policy: {}", policy);
         // Write policy to a file named "{admins}-policy.hcl"
         let pth = Path::new(".").join(format!("{}-policy.hcl", admins));
@@ -210,12 +248,18 @@ fn vault_reconcile_worker(svcs: Vec<BaseManifest>, team: Team, reg: Region) -> R
             debug!("vault {}", write_args.join(" "));
             let s = Command::new("vault").args(&write_args).status()?;
             if !s.success() {
-                bail!("Subprocess failure from vault: {}", s.code().unwrap_or(1001))
+                bail!(
+                    "Subprocess failure from vault: {}",
+                    s.code().unwrap_or(1001)
+                )
             }
         }
         // vault write auth -> team
         {
-            info!("Associating vault policy for {} with github team {} in {}", team.name, admins, reg.name);
+            info!(
+                "Associating vault policy for {} with github team {} in {}",
+                team.name, admins, reg.name
+            );
             let assoc_args = vec![
                 "write".into(),
                 format!("auth/github/map/teams/{}", admins),
@@ -224,12 +268,18 @@ fn vault_reconcile_worker(svcs: Vec<BaseManifest>, team: Team, reg: Region) -> R
             debug!("vault {}", assoc_args.join(" "));
             let s = Command::new("vault").args(&assoc_args).status()?;
             if !s.success() {
-                bail!("Subprocess failure from vault: {}", s.code().unwrap_or(1001))
+                bail!(
+                    "Subprocess failure from vault: {}",
+                    s.code().unwrap_or(1001)
+                )
             }
         }
     } else {
-        debug!("Team '{}' does not have a defined githubAdmins team in shipcat.conf - ignoring", team.name);
-        return Ok(()) // nothing to do
+        debug!(
+            "Team '{}' does not have a defined githubAdmins team in shipcat.conf - ignoring",
+            team.name
+        );
+        return Ok(()); // nothing to do
     };
     Ok(())
 }

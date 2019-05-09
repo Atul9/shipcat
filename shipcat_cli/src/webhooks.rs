@@ -1,11 +1,6 @@
-use crate::{
-    audit,
-    grafana,
-    slack,
-    Result
-};
-use crate::helm::{UpgradeData, UpgradeMode};
 use super::{Region, Webhook};
+use crate::helm::{UpgradeData, UpgradeMode};
+use crate::{audit, grafana, slack, Result};
 
 /// The different states an upgrade can be in
 #[derive(Serialize, PartialEq, Clone)]
@@ -42,9 +37,7 @@ pub fn reconcile_event(us: UpgradeState, reg: &Region) {
         for wh in whs {
             if let Ok(whc) = wh.get_configuration() {
                 if let Err(e) = match wh {
-                    Webhook::Audit(h) => {
-                        audit::audit_reconciliation(&us, &reg.name, &h, whc)
-                    }
+                    Webhook::Audit(h) => audit::audit_reconciliation(&us, &reg.name, &h, whc),
                 } {
                     warn!("Failed to notify about reconciliation event: {}", e)
                 }
@@ -77,9 +70,7 @@ fn handle_upgrade_notifies(us: UpgradeState, ud: &UpgradeData, reg: &Region) {
         for wh in whs {
             if let Ok(whc) = wh.get_configuration() {
                 if let Err(e) = match wh {
-                    Webhook::Audit(h) => {
-                        audit::audit_deployment(&us, &ud, &h, whc)
-                    }
+                    Webhook::Audit(h) => audit::audit_deployment(&us, &ud, &h, whc),
                 } {
                     warn!("Failed to notify about deployment event: {}", e)
                 }
@@ -89,33 +80,50 @@ fn handle_upgrade_notifies(us: UpgradeState, ud: &UpgradeData, reg: &Region) {
 
     // Slack and Grafana
 
-    let code = if ud.diff.is_empty() { None } else { Some(ud.diff.clone()) };
+    let code = if ud.diff.is_empty() {
+        None
+    } else {
+        Some(ud.diff.clone())
+    };
     let (color, text) = match us {
-        UpgradeState::Completed => ("good".into(), format!("{} `{}` in `{}`", ud.mode.action_verb(), ud.name, ud.region)),
-        UpgradeState::Failed => ("danger".into(), format!("failed to {} `{}` in `{}`", ud.mode, ud.name, ud.region)),
-        _ => ("good", format!("action state: {}", serde_json::to_string(&us).unwrap_or("unknown".into()))),
+        UpgradeState::Completed => (
+            "good".into(),
+            format!("{} `{}` in `{}`", ud.mode.action_verb(), ud.name, ud.region),
+        ),
+        UpgradeState::Failed => (
+            "danger".into(),
+            format!("failed to {} `{}` in `{}`", ud.mode, ud.name, ud.region),
+        ),
+        _ => (
+            "good",
+            format!(
+                "action state: {}",
+                serde_json::to_string(&us).unwrap_or("unknown".into())
+            ),
+        ),
     };
 
     match us {
         UpgradeState::Completed | UpgradeState::Failed => {
             if ud.mode != UpgradeMode::DiffOnly {
-              let _ = grafana::create(grafana::Annotation {
-                  event: grafana::Event::Upgrade,
-                  service: ud.name.clone(),
-                  version: ud.version.clone(),
-                  region: ud.region.clone(),
-                  time: grafana::TimeSpec::Now,
-              });
+                let _ = grafana::create(grafana::Annotation {
+                    event: grafana::Event::Upgrade,
+                    service: ud.name.clone(),
+                    version: ud.version.clone(),
+                    region: ud.region.clone(),
+                    time: grafana::TimeSpec::Now,
+                });
             }
             let _ = slack::send(slack::Message {
-                text, code,
+                text,
+                code,
                 color: Some(String::from(color)),
                 version: Some(ud.version.clone()),
                 metadata: ud.metadata.clone(),
                 ..Default::default()
             });
         }
-        _ => {},
+        _ => {}
     }
 }
 
@@ -127,9 +135,7 @@ pub fn upgrade_rollback_event(us: UpgradeState, ud: &UpgradeData, reg: &Region) 
         for wh in whs {
             if let Ok(whc) = wh.get_configuration() {
                 if let Err(e) = match wh {
-                    Webhook::Audit(h) => {
-                        audit::audit_deployment(&us, &ud, &h, whc)
-                    }
+                    Webhook::Audit(h) => audit::audit_deployment(&us, &ud, &h, whc),
                 } {
                     warn!("Failed to notify about rollback event: {}", e)
                 }
@@ -153,16 +159,14 @@ pub fn upgrade_rollback_event(us: UpgradeState, ud: &UpgradeData, reg: &Region) 
                 region: ud.region.clone(),
                 time: grafana::TimeSpec::Now,
             })
-        },
-        UpgradeState::Failed | UpgradeState::RollbackFailed => {
-            slack::send(slack::Message {
-                text: format!("failed to rollback `{}` in {}", &ud.name, &ud.region),
-                color: Some("danger".into()),
-                metadata: ud.metadata.clone(),
-                ..Default::default()
-            })
-        },
-        _ => { Ok(()) },
+        }
+        UpgradeState::Failed | UpgradeState::RollbackFailed => slack::send(slack::Message {
+            text: format!("failed to rollback `{}` in {}", &ud.name, &ud.region),
+            color: Some("danger".into()),
+            metadata: ud.metadata.clone(),
+            ..Default::default()
+        }),
+        _ => Ok(()),
     } {
         warn!("Failed to notify about rollback event: {}", e);
     }

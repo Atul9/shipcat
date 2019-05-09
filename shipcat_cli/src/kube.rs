@@ -1,16 +1,19 @@
-use super::{Result, Manifest};
-use shipcat_definitions::Crd;
-use serde::Serialize;
+use super::{Manifest, Result};
+use chrono::{DateTime, Utc};
 use regex::Regex;
+use serde::Serialize;
 use serde_yaml;
-use chrono::{Utc, DateTime};
+use shipcat_definitions::Crd;
 
 fn kexec(args: Vec<String>) -> Result<()> {
     use std::process::Command;
     debug!("kubectl {}", args.join(" "));
     let s = Command::new("kubectl").args(&args).status()?;
     if !s.success() {
-        bail!("Subprocess failure from kubectl: {}", s.code().unwrap_or(1001))
+        bail!(
+            "Subprocess failure from kubectl: {}",
+            s.code().unwrap_or(1001)
+        )
     }
     Ok(())
 }
@@ -18,8 +21,8 @@ fn kout(args: Vec<String>) -> Result<(String, bool)> {
     use std::process::Command;
     debug!("kubectl {}", args.join(" "));
     let s = Command::new("kubectl").args(&args).output()?;
-    let out : String = String::from_utf8_lossy(&s.stdout).into();
-    let err : String = String::from_utf8_lossy(&s.stderr).into();
+    let out: String = String::from_utf8_lossy(&s.stdout).into();
+    let err: String = String::from_utf8_lossy(&s.stderr).into();
     if !err.is_empty() {
         warn!("kubectl {} stderr: {}", args.join(" "), err.trim());
     }
@@ -81,18 +84,21 @@ pub fn await_rollout_status(mf: &Manifest) -> Result<bool> {
         Ok(false) => debug!("Ignoring rollout failure right after upgrade"),
         Err(e) => warn!("Ignoring rollout failure right after upgrade: {}", e),
     };
-    info!("Waiting {}s for deployment {} to rollout (not ready yet)", waittime, mf.name);
+    info!(
+        "Waiting {}s for deployment {} to rollout (not ready yet)",
+        waittime, mf.name
+    );
     for i in 1..10 {
         trace!("poll iteration {}", i);
         let mut waited = 0;
         // sleep until 1/10th of estimated upgrade time and poll for status
-        while waited < waittime/10 {
+        while waited < waittime / 10 {
             waited += 1;
             trace!("sleep 1s (waited {})", waited);
             thread::sleep(sec);
         }
         if rollout_status(&mf)? {
-            return Ok(true)
+            return Ok(true);
         }
     }
     Ok(false) // timeout
@@ -132,11 +138,13 @@ fn get_broken_pods(mf: &Manifest) -> Result<(String, Vec<String>)> {
                 warn!("Found pod not running: {}", p);
                 bpods.push(p.into());
             }
-        }
-        else if let Some(caps) = status_re.captures(l) {
+        } else if let Some(caps) = status_re.captures(l) {
             if caps["ready"] != caps["total"] {
                 if let Some(p) = l.split(' ').next() {
-                    warn!("Found pod with less than necessary containers healthy: {}", p);
+                    warn!(
+                        "Found pod with less than necessary containers healthy: {}",
+                        p
+                    );
                     bpods.push(p.into());
                 }
             }
@@ -167,17 +175,15 @@ pub fn debug(mf: &Manifest) -> Result<()> {
             "--tail=30".into(),
         ];
         match kout(logvec) {
-            Ok((l,_)) => {
+            Ok((l, _)) => {
                 if l == "" {
                     warn!("No logs for pod {} found", pod);
                 } else {
                     warn!("Last 30 log lines:");
                     println!("{}", l);
                 }
-            },
-            Err(e) => {
-                warn!("Failed to get logs from {}: {}", pod, e)
             }
+            Err(e) => warn!("Failed to get logs from {}: {}", pod, e),
         }
     }
 
@@ -194,22 +200,18 @@ pub fn debug(mf: &Manifest) -> Result<()> {
             Ok((mut o, _)) => {
                 if let Some(idx) = o.find("Events:\n") {
                     println!("{}", o.split_off(idx))
-                }
-                else {
+                } else {
                     // Not printing in this case, tons of secrets in here
                     warn!("Unable to find events for pod {}", pod);
                 }
-            },
-            Err(e) => {
-                warn!("Failed to describe {}: {}", pod, e)
             }
+            Err(e) => warn!("Failed to describe {}: {}", pod, e),
         }
     }
     // ignore errors from here atm - it's mostly here as a best effort helper
     let _ = debug_active_replicasets(mf);
     Ok(())
 }
-
 
 // Parsed replica status from a deployment description
 #[derive(Clone, Debug)]
@@ -247,7 +249,6 @@ struct ReplicaInfoVal {
     replicas: u32,
 }
 
-
 /// Simplified ReplicaSet struct
 ///
 /// Created by combining deployment description with appropriate replicaset yamls
@@ -274,7 +275,9 @@ fn find_active_replicasets(mf: &Manifest) -> Result<Vec<ReplicaSet>> {
         format!("-n={}", mf.namespace),
     ];
     // Finding the affected replicasets:
-    let rs_re = Regex::new(r"(Old|New)ReplicaSets?:\s+(?P<rs>\S+)\s+\((?P<running>\d+)/(?P<total>\d+)").unwrap();
+    let rs_re =
+        Regex::new(r"(Old|New)ReplicaSets?:\s+(?P<rs>\S+)\s+\((?P<running>\d+)/(?P<total>\d+)")
+            .unwrap();
     let (deployres, _) = kout(descvec)?;
     let mut sets = vec![];
     for l in deployres.lines() {
@@ -298,13 +301,13 @@ fn find_active_replicasets(mf: &Manifest) -> Result<Vec<ReplicaSet>> {
             "-oyaml".into(),
         ];
         let (getres, _) = kout(getvec)?;
-        let rv : ReplicaSetVal = serde_yaml::from_str(&getres)?;
+        let rv: ReplicaSetVal = serde_yaml::from_str(&getres)?;
         let ri = rv.status;
         let res = ReplicaSet {
             name: rs.name,
             available: ri.availableReplicas,
             total: ri.replicas,
-            created: rv.metadata.creationTimestamp
+            created: rv.metadata.creationTimestamp,
         };
         completesets.push(res);
     }
@@ -321,9 +324,11 @@ fn debug_active_replicasets(mf: &Manifest) -> Result<()> {
         info!("Latest {:?}", latest);
         if latest.available > 0 && latest.available < latest.total {
             warn!("Some replicas successfully rolled out - maybe a higher timeout would help?");
-        }
-        else if latest.available == 0{
-            warn!("No replicas were rolled out fast enough ({} secs)", mf.estimate_wait_time());
+        } else if latest.available == 0 {
+            warn!(
+                "No replicas were rolled out fast enough ({} secs)",
+                mf.estimate_wait_time()
+            );
             warn!("Your application might be crashing, or fail to respond to healthchecks in time");
             warn!("Current health check is set to {:?}", mf.health);
         }
@@ -337,17 +342,16 @@ fn debug_active_replicasets(mf: &Manifest) -> Result<()> {
 pub fn debug_rollout_status(mf: &Manifest) -> Result<()> {
     let mut sets = find_active_replicasets(mf)?;
     if sets.len() == 2 {
-        sets.sort_unstable_by(|x,y| x.created.timestamp().cmp(&y.created.timestamp()));
+        sets.sort_unstable_by(|x, y| x.created.timestamp().cmp(&y.created.timestamp()));
         let old = sets.first().unwrap();
         let new = sets.last().unwrap();
-        info!("{} upgrade status: old {}/{} -  new {}/{} ", mf.name,
-            old.available, old.total,
-            new.available, new.total
+        info!(
+            "{} upgrade status: old {}/{} -  new {}/{} ",
+            mf.name, old.available, old.total, new.available, new.total
         );
     }
     Ok(())
 }
-
 
 /// Shell into all pods associated with a service
 ///
@@ -380,11 +384,11 @@ pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -
             ];
             // kubectl exec $pod which bash
             // returns a non-zero rc if not found generally
-              let shexe = match kexec(trybash) {
+            let shexe = match kexec(trybash) {
                 Ok(o) => {
                     debug!("Got {:?}", o);
                     "bash".into()
-                },
+                }
                 Err(e) => {
                     warn!("No bash in container, falling back to `sh`");
                     debug!("Error: {}", e);
@@ -400,7 +404,6 @@ pub fn shell(mf: &Manifest, desiredpod: Option<usize>, cmd: Option<Vec<&str>>) -
     Ok(())
 }
 
-
 /// Port forward a port to localhost
 ///
 /// Useful because we have autocomplete on manifest names in shipcat
@@ -410,29 +413,31 @@ pub fn port_forward(mf: &Manifest) -> Result<()> {
     // first 1024 ports need sudo so avoid that
     let localport = if port <= 1024 { 7777 } else { port };
 
-    debug!("Port forwarding kube deployment {} to localhost:{}", mf.name, localport);
+    debug!(
+        "Port forwarding kube deployment {} to localhost:{}",
+        mf.name, localport
+    );
     //kubectl port-forward deployment/${name} localport:httpPort
     let pfargs = vec![
         format!("-n={}", mf.namespace),
         "port-forward".into(),
         format!("deployment/{}", mf.name),
-        format!("{}:{}", port, port)
+        format!("{}:{}", port, port),
     ];
     kexec(pfargs)?;
     Ok(())
 }
-
 
 /// Apply the CRD for any struct that can be turned into a CRD
 ///
 /// CRDs itself, Manifest and Config typically.
 /// Returns whether or not the CRD was configured
 pub fn apply_crd<T: Into<Crd<T>> + Serialize>(name: &str, data: T, ns: &str) -> Result<bool> {
-    use std::path::Path;
     use std::fs::{self, File};
     use std::io::Write;
+    use std::path::Path;
     // Use trait constraint to convert it to a CRD
-    let crd : Crd<T> = data.into();
+    let crd: Crd<T> = data.into();
 
     // Write it to a temporary file:
     let crdfile = format!("{}.crd.gen.yml", name);
@@ -441,7 +446,13 @@ pub fn apply_crd<T: Into<Crd<T>> + Serialize>(name: &str, data: T, ns: &str) -> 
     let mut f = File::create(&pth)?;
     let encoded = serde_yaml::to_string(&crd)?;
     writeln!(f, "{}", encoded)?;
-    debug!("Wrote {} CRD for {} to {}: \n{}", crd.kind, name, pth.display(), encoded);
+    debug!(
+        "Wrote {} CRD for {} to {}: \n{}",
+        crd.kind,
+        name,
+        pth.display(),
+        encoded
+    );
 
     // Apply it using kubectl apply
     debug!("Applying {} CRD for {}", crd.kind, name);
@@ -473,15 +484,16 @@ pub fn apply_crd<T: Into<Crd<T>> + Serialize>(name: &str, data: T, ns: &str) -> 
 ///
 /// Allows us to purge manifests that are not in Manifest::available()
 fn find_all_manifest_crds(ns: &str) -> Result<Vec<String>> {
-     let getargs = vec![
+    let getargs = vec![
         "get".into(),
         format!("-n={}", ns),
         "shipcatmanifests".into(),
         "-ojsonpath='{.items[*].metadata.name}'".into(),
     ];
     let (out, _) = kout(getargs)?;
-    if out == "''" { // stupid kubectl
-        return Ok(vec![])
+    if out == "''" {
+        // stupid kubectl
+        return Ok(vec![]);
     }
     Ok(out.split(' ').map(String::from).collect())
 }
@@ -492,18 +504,21 @@ pub fn diff(pth: PathBuf, ns: &str) -> Result<(String, bool)> {
     let args = vec![
         "diff".into(),
         format!("-n={}", ns),
-        format!("-f={}", pth.display())
+        format!("-f={}", pth.display()),
     ];
     // need the error code here so re-implent - and discard stderr
     use std::process::Command;
     debug!("kubectl {}", args.join(" "));
 
     let s = Command::new("kubectl").args(&args).output()?;
-    let out : String = String::from_utf8_lossy(&s.stdout).into();
-    let err : String = String::from_utf8_lossy(&s.stderr).into();
+    let out: String = String::from_utf8_lossy(&s.stdout).into();
+    let err: String = String::from_utf8_lossy(&s.stderr).into();
     trace!("out: {}, err: {}", out, err);
     if err.contains("the dryRun alpha feature is disabled") {
-        bail!("kubectl diff is not supported in your cluster: {}", err.trim());
+        bail!(
+            "kubectl diff is not supported in your cluster: {}",
+            err.trim()
+        );
     }
     Ok((out, s.status.success()))
 }
@@ -514,9 +529,9 @@ pub fn remove_redundant_manifests(ns: &str, svcs: &Vec<String>) -> Result<Vec<St
     let found: HashSet<_> = find_all_manifest_crds(ns)?.iter().cloned().collect();
     debug!("Found manifests: {:?}", found);
 
-    let excess : HashSet<_> = found.difference(&requested).collect();
+    let excess: HashSet<_> = found.difference(&requested).collect();
     info!("Will remove excess manifests: {:?}", excess);
-     let mut delargs = vec![
+    let mut delargs = vec![
         "delete".into(),
         format!("-n={}", ns),
         "shipcatmanifests".into(),
@@ -535,8 +550,8 @@ pub fn remove_redundant_manifests(ns: &str, svcs: &Vec<String>) -> Result<Vec<St
 
 #[cfg(test)]
 mod tests {
-    use dirs;
     use super::current_context;
+    use dirs;
 
     #[test]
     fn validate_ctx() {

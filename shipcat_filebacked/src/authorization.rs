@@ -2,8 +2,8 @@ use merge::Merge;
 
 use shipcat_definitions::structs::Authorization;
 
+use super::util::Build;
 use super::Result;
-use super::util::{Build};
 
 #[derive(Deserialize, Default, Merge, Clone)]
 pub struct AuthorizationSource {

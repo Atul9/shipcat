@@ -1,11 +1,11 @@
-use slack_hook::{Slack, PayloadBuilder, SlackLink, SlackText, SlackUserLink, AttachmentBuilder};
-use slack_hook::SlackTextContent::{self, Text, Link, User};
-use std::env;
 use semver::Version;
+use slack_hook::SlackTextContent::{self, Link, Text, User};
+use slack_hook::{AttachmentBuilder, PayloadBuilder, Slack, SlackLink, SlackText, SlackUserLink};
+use std::env;
 
 use super::helm::helpers;
 use super::structs::Metadata;
-use super::{Result, ErrorKind, ResultExt};
+use super::{ErrorKind, Result, ResultExt};
 
 /// Slack message options we support
 ///
@@ -56,7 +56,7 @@ pub fn have_credentials() -> Result<()> {
 }
 
 pub fn send(msg: Message) -> Result<()> {
-    let hook_chan : String = env_channel()?;
+    let hook_chan: String = env_channel()?;
     send_internal(msg.clone(), hook_chan)?;
     if let Some(md) = &msg.metadata {
         if let Some(chan) = &md.notifications {
@@ -69,14 +69,16 @@ pub fn send(msg: Message) -> Result<()> {
 
 /// Send a `Message` to a configured slack destination
 fn send_internal(msg: Message, chan: String) -> Result<()> {
-    let hook_url : &str = &env_hook_url()?;
-    let hook_user : String = env_username();
+    let hook_url: &str = &env_hook_url()?;
+    let hook_user: String = env_username();
 
     // if hook url is invalid, chain it so we know where it came from:
-    let slack = Slack::new(hook_url).chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
-    let mut p = PayloadBuilder::new().channel(chan)
-      .icon_emoji(":ship:")
-      .username(hook_user);
+    let slack =
+        Slack::new(hook_url).chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
+    let mut p = PayloadBuilder::new()
+        .channel(chan)
+        .icon_emoji(":ship:")
+        .username(hook_user);
 
     debug!("Got slack notify {:?}", msg);
     // NB: cannot use .link_names due to https://api.slack.com/changelog/2017-09-the-one-about-usernames
@@ -112,14 +114,16 @@ fn send_internal(msg: Message, chan: String) -> Result<()> {
         }
         // attach full diff as a slack attachment otherwise
         if !diff_is_pure_verison_change {
-            codeattach = Some(AttachmentBuilder::new(diff.clone())
-                .color("#439FE0")
-                .text(vec![Text(diff.into())].as_slice())
-                .build()?)
+            codeattach = Some(
+                AttachmentBuilder::new(diff.clone())
+                    .color("#439FE0")
+                    .text(vec![Text(diff.into())].as_slice())
+                    .build()?,
+            )
         }
     } else if let Some(v) = msg.version {
         if let Some(ref md) = msg.metadata {
-           texts.push(infer_metadata_single_link(md, v));
+            texts.push(infer_metadata_single_link(md, v));
         }
     }
 
@@ -129,8 +133,16 @@ fn send_internal(msg: Message, chan: String) -> Result<()> {
         if split.len() > 2 {
             bail!("Link {} not in the form of url|description", link);
         }
-        let desc = if split.len() == 2 { split[1].into() } else { link.clone() };
-        let addr = if split.len() == 2 { split[0].into() } else { link.clone() };
+        let desc = if split.len() == 2 {
+            split[1].into()
+        } else {
+            link.clone()
+        };
+        let addr = if split.len() == 2 {
+            split[0].into()
+        } else {
+            link.clone()
+        };
         texts.push(Link(SlackLink::new(&addr, &desc)));
     } else {
         // Auto link/text from originator if no ink set
@@ -153,12 +165,13 @@ fn send_internal(msg: Message, chan: String) -> Result<()> {
     if let Some(diffattach) = codeattach {
         ax.push(diffattach);
         // Pass attachment vector
-
     }
     p = p.attachments(ax);
 
     // Send everything. Phew.
-    slack.send(&p.build()?).chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
+    slack
+        .send(&p.build()?)
+        .chain_err(|| ErrorKind::SlackSendFailure(hook_url.to_string()))?;
 
     Ok(())
 }
@@ -195,19 +208,26 @@ fn create_github_compare_url(md: &Metadata, vers: (&str, &str)) -> SlackTextCont
 }
 
 fn infer_slack_notifies(md: &Metadata) -> Vec<SlackTextContent> {
-    md.contacts.iter().map(|cc| { User(SlackUserLink::new(&cc.slack)) }).collect()
+    md.contacts
+        .iter()
+        .map(|cc| User(SlackUserLink::new(&cc.slack)))
+        .collect()
 }
 
 /// Infer originator of a message
 fn infer_ci_links() -> SlackTextContent {
-    if let (Ok(url), Ok(name), Ok(nr)) = (env::var("BUILD_URL"),
-                                          env::var("JOB_NAME"),
-                                          env::var("BUILD_NUMBER")) {
+    if let (Ok(url), Ok(name), Ok(nr)) = (
+        env::var("BUILD_URL"),
+        env::var("JOB_NAME"),
+        env::var("BUILD_NUMBER"),
+    ) {
         // we are on jenkins
         Link(SlackLink::new(&url, &format!("{}#{}", name, nr)))
-    } else if let (Ok(url), Ok(name), Ok(nr)) = (env::var("CIRCLE_BUILD_URL"),
-                                                 env::var("CIRCLE_JOB"),
-                                                 env::var("CIRCLE_BUILD_NUM")) {
+    } else if let (Ok(url), Ok(name), Ok(nr)) = (
+        env::var("CIRCLE_BUILD_URL"),
+        env::var("CIRCLE_JOB"),
+        env::var("CIRCLE_BUILD_NUM"),
+    ) {
         // we are on circle
         Link(SlackLink::new(&url, &format!("{}#{}", name, nr)))
     } else if let Ok(user) = env::var("USER") {

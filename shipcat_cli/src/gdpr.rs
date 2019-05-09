@@ -2,7 +2,7 @@ use super::{Config, Region};
 use std::collections::BTreeMap;
 
 use super::structs::security::DataHandling;
-use super::{Result};
+use super::Result;
 
 /// GdprOutput across manifests
 #[derive(Serialize)]
@@ -10,7 +10,6 @@ struct GdprOutput {
     pub mappings: BTreeMap<String, DataHandling>,
     pub services: Vec<String>,
 }
-
 
 /// Show GDPR related info for a service
 ///

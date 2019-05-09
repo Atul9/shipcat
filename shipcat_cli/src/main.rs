@@ -1,8 +1,10 @@
-#[macro_use] extern crate clap;
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate clap;
+#[macro_use]
+extern crate log;
 
+use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
 use shipcat::*;
-use clap::{Arg, App, AppSettings, SubCommand, ArgMatches};
 use std::process;
 
 fn print_error_debug(e: &Error) {
@@ -408,7 +410,9 @@ fn resolve_config(args: &ArgMatches, ct: ConfigType) -> Result<(Config, Region)>
     Ok(res)
 }
 
-fn void<T>(_x: T) { () } // helper so that dispatch_commands can return Result<()>
+fn void<T>(_x: T) {
+    ()
+} // helper so that dispatch_commands can return Result<()>
 
 /// Dispatch clap arguments to shipcat handlers
 ///
@@ -419,13 +423,11 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     if args.subcommand_matches("list-regions").is_some() {
         let rawconf = Config::read()?;
         return shipcat::list::regions(&rawconf);
-    }
-    else if args.subcommand_matches("list-locations").is_some() {
+    } else if args.subcommand_matches("list-locations").is_some() {
         let rawconf = Config::read()?;
         return shipcat::list::locations(&rawconf);
-    }
-    else if let Some(a) = args.subcommand_matches("list-services") {
-        let (conf , region) = resolve_config(a, ConfigType::Base)?;
+    } else if let Some(a) = args.subcommand_matches("list-services") {
+        let (conf, region) = resolve_config(a, ConfigType::Base)?;
         return shipcat::list::services(&conf, &region);
     }
     //if let Some(a) = args.subcommand_matches("list-products") {
@@ -446,11 +448,16 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         }
         if let Some(_) = a.subcommand_matches("clusterinfo") {
             let rawconf = Config::read()?;
-            assert!(a.is_present("region"), "explicit context needed for clusterinfo");
-            return shipcat::get::clusterinfo(&rawconf,
+            assert!(
+                a.is_present("region"),
+                "explicit context needed for clusterinfo"
+            );
+            return shipcat::get::clusterinfo(
+                &rawconf,
                 a.value_of("region").unwrap(),
-                a.value_of("cluster")
-            ).map(void);
+                a.value_of("cluster"),
+            )
+            .map(void);
         }
 
         // resolve region from kube context here if unspecified
@@ -479,18 +486,17 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     else if let Some(_a) = args.subcommand_matches("product") {
         // TODO: handle more like the other commands
         unimplemented!();
-/*        if let Some(b) = a.subcommand_matches("verify") {
-            let location = b.value_of("location");
-            let products  = b.values_of("products").unwrap().map(String::from).collect::<Vec<_>>();
-            return shipcat::product::validate(products, &conf, location.map(String::from));
-        }
-        else if let Some(b) = a.subcommand_matches("show") {
-            let product  = b.value_of("product").map(String::from);
-            let location = b.value_of("location");
-            return shipcat::product::show(product, &conf, location.unwrap());
-        }*/
+    /*        if let Some(b) = a.subcommand_matches("verify") {
+        let location = b.value_of("location");
+        let products  = b.values_of("products").unwrap().map(String::from).collect::<Vec<_>>();
+        return shipcat::product::validate(products, &conf, location.map(String::from));
     }
-    else if let Some(a) = args.subcommand_matches("config") {
+    else if let Some(b) = a.subcommand_matches("show") {
+        let product  = b.value_of("product").map(String::from);
+        let location = b.value_of("location");
+        return shipcat::product::show(product, &conf, location.unwrap());
+    }*/
+    } else if let Some(a) = args.subcommand_matches("config") {
         if let Some(_) = a.subcommand_matches("crd") {
             let (conf, _region) = resolve_config(a, ConfigType::Base)?;
             // this only works with a given region
@@ -515,7 +521,11 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
     else if let Some(a) = args.subcommand_matches("secret") {
         let rawconf = Config::read()?;
         if let Some(b) = a.subcommand_matches("verify-region") {
-            let regions = b.values_of("regions").unwrap().map(String::from).collect::<Vec<_>>();
+            let regions = b
+                .values_of("regions")
+                .unwrap()
+                .map(String::from)
+                .collect::<Vec<_>>();
             // NB: this does a cheap verify of both Config and Manifest (vault list)
             return if b.is_present("git") {
                 shipcat::validate::secret_presence_git(&rawconf, regions)
@@ -524,17 +534,14 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             };
         }
     }
-
     // ------------------------------------------------------------------------------
     // important dev commands below - they resolve kube context as a fallback
     // otherwise region can be passed in as args
-
     else if let Some(a) = args.subcommand_matches("status") {
         let svc = a.value_of("service").map(String::from).unwrap();
         let (conf, region) = resolve_config(a, ConfigType::Base)?;
         return shipcat::helm::status(&svc, &conf, &region);
-    }
-    else if let Some(a) = args.subcommand_matches("graph") {
+    } else if let Some(a) = args.subcommand_matches("graph") {
         let dot = a.is_present("dot");
         let (conf, region) = resolve_config(a, ConfigType::Base)?;
         return if let Some(svc) = a.value_of("service") {
@@ -546,21 +553,31 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         } else {
             shipcat::graph::full(dot, &conf, &region).map(void)
         };
-    }
-    else if let Some(a) = args.subcommand_matches("validate") {
-        let services = a.values_of("services").unwrap().map(String::from).collect::<Vec<_>>();
+    } else if let Some(a) = args.subcommand_matches("validate") {
+        let services = a
+            .values_of("services")
+            .unwrap()
+            .map(String::from)
+            .collect::<Vec<_>>();
         // this only needs a kube context if you don't specify it
-        let ss = if a.is_present("secrets") { ConfigType::Filtered } else { ConfigType::Base };
+        let ss = if a.is_present("secrets") {
+            ConfigType::Filtered
+        } else {
+            ConfigType::Base
+        };
         let (conf, region) = resolve_config(a, ss)?;
         if !a.is_present("skip-version-check") {
             conf.verify_version_pin(&region.environment)?;
         }
         return shipcat::validate::manifest(services, &conf, &region, a.is_present("secrets"));
-    }
-    else if let Some(a) = args.subcommand_matches("values") {
+    } else if let Some(a) = args.subcommand_matches("values") {
         let svc = a.value_of("service").map(String::from).unwrap();
 
-        let ss = if a.is_present("secrets") { ConfigType::Filtered } else { ConfigType::Base };
+        let ss = if a.is_present("secrets") {
+            ConfigType::Filtered
+        } else {
+            ConfigType::Base
+        };
         let (conf, region) = resolve_config(a, ss)?;
 
         let mf = if a.is_present("secrets") {
@@ -570,31 +587,28 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         };
         mf.print()?;
         return Ok(());
-    }
-    else if let Some(a) = args.subcommand_matches("template") {
+    } else if let Some(a) = args.subcommand_matches("template") {
         let svc = a.value_of("service").map(String::from).unwrap();
 
-        let ss = if a.is_present("secrets") { ConfigType::Filtered } else { ConfigType::Base };
+        let ss = if a.is_present("secrets") {
+            ConfigType::Filtered
+        } else {
+            ConfigType::Base
+        };
         let (conf, region) = resolve_config(a, ss)?;
 
         let mock = !a.is_present("secrets");
-        return shipcat::helm::direct::template(&svc,
-                &region, &conf, None, mock, None).map(void);
-    }
-    else if let Some(a) = args.subcommand_matches("crd") {
+        return shipcat::helm::direct::template(&svc, &region, &conf, None, mock, None).map(void);
+    } else if let Some(a) = args.subcommand_matches("crd") {
         let svc = a.value_of("service").map(String::from).unwrap();
 
         let (conf, region) = resolve_config(a, ConfigType::Base)?;
         return shipcat::show::manifest_crd(&svc, &conf, &region);
-    }
-
-    else if let Some(a) = args.subcommand_matches("env") {
+    } else if let Some(a) = args.subcommand_matches("env") {
         let svc = a.value_of("service").map(String::from).unwrap();
         let (conf, region) = resolve_config(a, ConfigType::Filtered)?;
         return shipcat::env::print_bash(&svc, &conf, &region);
-    }
-
-    else if let Some(a) = args.subcommand_matches("diff") {
+    } else if let Some(a) = args.subcommand_matches("diff") {
         let svc = a.value_of("service").map(String::from).unwrap();
         let has_diff = if a.is_present("crd") {
             let (conf, region) = resolve_config(a, ConfigType::Base)?;
@@ -605,7 +619,11 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
                 shipcat::diff::values_vs_kubectl(&svc, &conf, &region)?
             }
         } else {
-            let ss = if a.is_present("secrets") { ConfigType::Filtered } else { ConfigType::Base };
+            let ss = if a.is_present("secrets") {
+                ConfigType::Filtered
+            } else {
+                ConfigType::Base
+            };
             let (conf, region) = resolve_config(a, ss)?;
             let mock = !a.is_present("secrets");
             if a.is_present("git") {
@@ -616,10 +634,7 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             }
         };
         process::exit(if has_diff { 0 } else { 1 }); // emulate diff return codes
-    }
-
-
-    else if let Some(a) = args.subcommand_matches("kong") {
+    } else if let Some(a) = args.subcommand_matches("kong") {
         return if let Some(_b) = a.subcommand_matches("config-url") {
             let (_conf, region) = resolve_config(a, ConfigType::Base)?;
             shipcat::kong::config_url(&region)
@@ -633,16 +648,12 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             assert!(conf.has_secrets()); // sanity on cluster disruptive commands
             shipcat::kong::output(&conf, &region, mode)
         };
-    }
-
-    else if let Some(a) = args.subcommand_matches("statuscake") {
+    } else if let Some(a) = args.subcommand_matches("statuscake") {
         let (conf, region) = resolve_config(a, ConfigType::Base)?;
         return shipcat::statuscake::output(&conf, &region);
     }
-
     // ------------------------------------------------------------------------------
     // everything below needs a kube context!
-
     else if let Some(a) = args.subcommand_matches("apply") {
         let svc = a.value_of("service").map(String::from).unwrap();
         // this absolutely needs secrets..
@@ -654,11 +665,8 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         };
         let ver = a.value_of("tag").map(String::from); // needed for some subcommands
         assert!(conf.has_secrets()); // sanity on cluster disruptive commands
-        return shipcat::helm::direct::upgrade_wrapper(&svc,
-            umode, &region,
-            &conf, ver).map(void);
+        return shipcat::helm::direct::upgrade_wrapper(&svc, umode, &region, &conf, ver).map(void);
     }
-
     // helm subcommands
     else if let Some(a) = args.subcommand_matches("helm") {
         let svc = a.value_of("service").unwrap(); // defined required above
@@ -677,51 +685,38 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
 
         if let Some(_) = a.subcommand_matches("values") {
             //let _output = b.value_of("output").map(String::from);
-            return shipcat::helm::direct::values_wrapper(svc,
-                &region, &conf, ver.clone());
+            return shipcat::helm::direct::values_wrapper(svc, &region, &conf, ver.clone());
         }
         if let Some(_) = a.subcommand_matches("template") {
             //let _output = b.value_of("output").map(String::from);
             let output = None;
             let mock = false; // not with this entry point
-            return shipcat::helm::direct::template(svc,
-                &region, &conf, ver.clone(), mock, output).map(void);
+            return shipcat::helm::direct::template(svc, &region, &conf, ver.clone(), mock, output)
+                .map(void);
         }
-
 
         let umode = if let Some(b) = a.subcommand_matches("upgrade") {
             if b.is_present("dryrun") {
                 shipcat::helm::UpgradeMode::DiffOnly
-            }
-            else if b.is_present("auto-rollback") {
+            } else if b.is_present("auto-rollback") {
                 shipcat::helm::UpgradeMode::UpgradeWaitMaybeRollback
-            }
-            else if b.is_present("no-wait") {
+            } else if b.is_present("no-wait") {
                 shipcat::helm::UpgradeMode::UpgradeNoWait
-            }
-            else {
+            } else {
                 shipcat::helm::UpgradeMode::UpgradeWait
             }
-        }
-        else if let Some(_) = a.subcommand_matches("install") {
+        } else if let Some(_) = a.subcommand_matches("install") {
             shipcat::helm::UpgradeMode::UpgradeInstall
-        }
-        else if let Some(_) = a.subcommand_matches("diff") {
+        } else if let Some(_) = a.subcommand_matches("diff") {
             shipcat::helm::UpgradeMode::DiffOnly
-        }
-        else if let Some(_) = a.subcommand_matches("recreate") {
+        } else if let Some(_) = a.subcommand_matches("recreate") {
             shipcat::helm::UpgradeMode::UpgradeRecreateWait
-        }
-        else {
+        } else {
             unreachable!("Helm Subcommand valid, but not implemented")
         };
         assert!(conf.has_secrets()); // sanity on cluster disruptive commands
-        return shipcat::helm::direct::upgrade_wrapper(svc,
-            umode, &region,
-            &conf, ver).map(void);
+        return shipcat::helm::direct::upgrade_wrapper(svc, umode, &region, &conf, ver).map(void);
     }
-
-
     // 4. cluster level commands
     else if let Some(a) = args.subcommand_matches("cluster") {
         if let Some(b) = a.subcommand_matches("crd") {
@@ -746,21 +741,18 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
             let jobs = b.value_of("num-jobs").unwrap_or("8").parse().unwrap();
             if let Some(_) = b.subcommand_matches("diff") {
                 return shipcat::cluster::helm_diff(&conf, &region, jobs);
-            }
-            else if let Some(_) = b.subcommand_matches("reconcile") {
+            } else if let Some(_) = b.subcommand_matches("reconcile") {
                 return shipcat::cluster::helm_reconcile(&conf, &region, jobs);
             }
         }
     }
-
-
     // ------------------------------------------------------------------------------
     // Dispatch small helpers that does not need secrets
     // most of these require a resolved `region` via kubectl
 
     // super kube specific ones:
     else if let Some(a) = args.subcommand_matches("shell") {
-         let (conf, region) = resolve_config(args, ConfigType::Base)?;
+        let (conf, region) = resolve_config(args, ConfigType::Base)?;
         let service = a.value_of("service").unwrap();
         let pod = value_t!(a.value_of("pod"), usize).ok();
 
@@ -771,24 +763,25 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         };
         let mf = shipcat_filebacked::load_manifest(service, &conf, &region)?.stub(&region)?;
         return shipcat::kube::shell(&mf, pod, cmd);
-    }
-    else if let Some(a) = args.subcommand_matches("port-forward") {
+    } else if let Some(a) = args.subcommand_matches("port-forward") {
         let (conf, region) = resolve_config(args, ConfigType::Base)?;
         let service = a.value_of("service").unwrap();
         let mf = shipcat_filebacked::load_manifest(service, &conf, &region)?.stub(&region)?;
         return shipcat::kube::port_forward(&mf);
-    }
-    else if let Some(a) = args.subcommand_matches("debug") {
+    } else if let Some(a) = args.subcommand_matches("debug") {
         let (conf, region) = resolve_config(args, ConfigType::Base)?;
         let service = a.value_of("service").unwrap();
         let mf = shipcat_filebacked::load_manifest(service, &conf, &region)?.stub(&region)?;
         return shipcat::kube::debug(&mf);
     }
-
     // these could technically forgo the kube dependency..
     else if let Some(a) = args.subcommand_matches("slack") {
         let (conf, region) = resolve_config(args, ConfigType::Base)?;
-        let text = a.values_of("message").unwrap().collect::<Vec<_>>().join(" ");
+        let text = a
+            .values_of("message")
+            .unwrap()
+            .collect::<Vec<_>>()
+            .join(" ");
         let link = a.value_of("url").map(String::from);
         let color = a.value_of("color").map(String::from);
         let metadata = if let Some(svc) = a.value_of("service") {
@@ -796,10 +789,15 @@ fn dispatch_commands(args: &ArgMatches) -> Result<()> {
         } else {
             None
         };
-        let msg = shipcat::slack::Message { text, link, color, metadata, ..Default::default() };
+        let msg = shipcat::slack::Message {
+            text,
+            link,
+            color,
+            metadata,
+            ..Default::default()
+        };
         return shipcat::slack::send(msg);
-    }
-    else if let Some(a) = args.subcommand_matches("gdpr") {
+    } else if let Some(a) = args.subcommand_matches("gdpr") {
         let (conf, region) = resolve_config(args, ConfigType::Base)?;
         let svc = a.value_of("service").map(String::from);
         return shipcat::gdpr::show(svc, &conf, &region);

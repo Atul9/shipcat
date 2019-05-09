@@ -1,14 +1,14 @@
 use merge::Merge;
 use regex::Regex;
 
+use shipcat_definitions::structs::{Container, Port, Probe, VolumeMount};
 use shipcat_definitions::Result;
-use shipcat_definitions::structs::{Container, Probe, Port, VolumeMount};
 
 use crate::util::{Build, Require};
 
-use super::EnvVarsSource;
-use super::image::{ImageTagSource, ImageNameSource};
+use super::image::{ImageNameSource, ImageTagSource};
 use super::resources::ResourceRequirementsSource;
+use super::EnvVarsSource;
 
 #[derive(Deserialize, Clone, Default)]
 pub struct ContainerName(String);

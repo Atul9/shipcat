@@ -5,8 +5,8 @@ extern crate log;
 
 use serde_derive::Serialize;
 
-use std::env;
 use chrono::Local;
+use std::env;
 
 pub use raftcat::*;
 
@@ -15,17 +15,18 @@ fn team_slug(name: &str) -> String {
     name.to_lowercase().replace("/", "-").replace(" ", "_")
 }
 fn find_team(cfg: &Config, slug: &str) -> Option<Team> {
-    cfg.teams.iter().find(|t| team_slug(&t.name) == slug).cloned()
+    cfg.teams
+        .iter()
+        .find(|t| team_slug(&t.name) == slug)
+        .cloned()
 }
-
 
 // ----------------------------------------------------------------------------------
 // Web server interface
 use actix_web::{
-    server, App, Path, Responder, HttpRequest, HttpResponse, middleware,
     http::{header, Method, StatusCode},
+    middleware, server, App, HttpRequest, HttpResponse, Path, Responder,
 };
-
 
 // Route entrypoints
 fn get_single_manifest(req: &HttpRequest<State>) -> Result<HttpResponse> {
@@ -78,7 +79,6 @@ fn get_service(req: &HttpRequest<State>) -> Result<HttpResponse> {
         let pretty = serde_yaml::to_string(&mf)?;
         let mfstub = mf.clone().stub(&region).unwrap();
 
-
         let md = mf.metadata.clone().unwrap();
         let (vlink, version) = if let Some(ver) = mf.version.clone().or(ver_fallback) {
             if semver::Version::parse(&ver).is_ok() {
@@ -95,7 +95,8 @@ fn get_service(req: &HttpRequest<State>) -> Result<HttpResponse> {
             h.uri
         } else if let Some(h) = mf.readinessProbe.clone() {
             serde_json::to_string(&h)?
-        } else { // can be here if no exposed port
+        } else {
+            // can be here if no exposed port
             "non-service".into()
         };
         let (support, supportlink) = (md.support.clone(), md.support.unwrap().link(&cfg.slack));
@@ -103,7 +104,10 @@ fn get_service(req: &HttpRequest<State>) -> Result<HttpResponse> {
         let circlelink = format!("https://circleci.com/gh/Babylonpartners/{}", mf.name);
         let quaylink = format!("https://{}/?tab=tags", mf.image.clone().unwrap());
 
-        let (team, teamlink) = (md.team.clone(), format!("/raftcat/teams/{}", team_slug(&md.team)));
+        let (team, teamlink) = (
+            md.team.clone(),
+            format!("/raftcat/teams/{}", team_slug(&md.team)),
+        );
         // TODO: runbook
 
         let mut ctx = tera::Context::new();
@@ -184,19 +188,19 @@ struct SimpleManifest {
 fn index(req: &HttpRequest<State>) -> Result<HttpResponse> {
     let mut ctx = tera::Context::new();
     let mfs = req.state().get_manifests()?;
-    let data = mfs.into_iter().map(|(k, m)| {
-        SimpleManifest {
+    let data = mfs
+        .into_iter()
+        .map(|(k, m)| SimpleManifest {
             name: k,
             team: m.metadata.unwrap().team.to_lowercase(),
-        }
-    }).collect::<Vec<_>>();
+        })
+        .collect::<Vec<_>>();
     let data = serde_json::to_string(&data)?;
     ctx.insert("raftcat", env!("CARGO_PKG_VERSION"));
     ctx.insert("manifests", &data);
     let s = req.state().render_template("index.tera", ctx);
     Ok(HttpResponse::Ok().content_type("text/html").body(s))
 }
-
 
 fn main() -> Result<()> {
     sentry::integrations::panic::register_panic_handler();
@@ -220,35 +224,51 @@ fn main() -> Result<()> {
     let cfg = match env::var("HOME").expect("have HOME dir").as_ref() {
         "/root" => kube::config::incluster_config(),
         _ => kube::config::load_kube_config(),
-    }.expect("Failed to load kube config");
+    }
+    .expect("Failed to load kube config");
     let shared_state = state::init(cfg).unwrap(); // crash if init fails
 
     info!("Creating http server");
     let sys = actix::System::new("raftcat");
     server::new(move || {
         App::with_state(shared_state.clone())
-            .middleware(middleware::Logger::default()
-                .exclude("/raftcat/health")
-                .exclude("/health")
-                .exclude("/favicon.ico")
-                .exclude("/raftcat/static/*")
+            .middleware(
+                middleware::Logger::default()
+                    .exclude("/raftcat/health")
+                    .exclude("/health")
+                    .exclude("/favicon.ico")
+                    .exclude("/raftcat/static/*"),
             )
             .middleware(sentry_actix::SentryMiddleware::new())
-            .handler("/raftcat/static", actix_web::fs::StaticFiles::new("./raftcat/static").unwrap())
+            .handler(
+                "/raftcat/static",
+                actix_web::fs::StaticFiles::new("./raftcat/static").unwrap(),
+            )
             .resource("/raftcat/config", |r| r.method(Method::GET).f(get_config))
-            .resource("/raftcat/manifests/{name}/resources", |r| r.method(Method::GET).f(get_resource_usage))
-            .resource("/raftcat/manifests/{name}", |r| r.method(Method::GET).f(get_single_manifest))
-            .resource("/raftcat/manifests", |r| r.method(Method::GET).f(get_all_manifests))
-            .resource("/raftcat/services/{name}", |r| r.method(Method::GET).f(get_service))
-            .resource("/raftcat/teams/{name}", |r| r.method(Method::GET).f(get_manifests_for_team))
+            .resource("/raftcat/manifests/{name}/resources", |r| {
+                r.method(Method::GET).f(get_resource_usage)
+            })
+            .resource("/raftcat/manifests/{name}", |r| {
+                r.method(Method::GET).f(get_single_manifest)
+            })
+            .resource("/raftcat/manifests", |r| {
+                r.method(Method::GET).f(get_all_manifests)
+            })
+            .resource("/raftcat/services/{name}", |r| {
+                r.method(Method::GET).f(get_service)
+            })
+            .resource("/raftcat/teams/{name}", |r| {
+                r.method(Method::GET).f(get_manifests_for_team)
+            })
             .resource("/raftcat/teams", |r| r.method(Method::GET).f(get_teams))
             .resource("/raftcat/health", |r| r.method(Method::GET).f(health))
             .resource("/health", |r| r.method(Method::GET).f(health)) // redundancy
             .resource("/raftcat/", |r| r.method(Method::GET).f(index))
-        })
-        .bind("0.0.0.0:8080").expect("Can not bind to 0.0.0.0:8080")
-        .shutdown_timeout(0)    // <- Set shutdown timeout to 0 seconds (default 60s)
-        .start();
+    })
+    .bind("0.0.0.0:8080")
+    .expect("Can not bind to 0.0.0.0:8080")
+    .shutdown_timeout(0) // <- Set shutdown timeout to 0 seconds (default 60s)
+    .start();
 
     info!("Starting listening on 0.0.0.0:8080");
     let _ = sys.run();

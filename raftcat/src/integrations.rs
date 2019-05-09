@@ -1,7 +1,7 @@
 pub mod version {
     use crate::Result;
-    use std::collections::BTreeMap;
     use reqwest::Url;
+    use std::collections::BTreeMap;
 
     // version fetching stuff
     #[derive(Deserialize)]
@@ -25,12 +25,11 @@ pub mod version {
         }
         let text = res.text()?;
         trace!("Got version data: {}", text);
-        let data : Vec<Entry> = serde_json::from_str(&text)?;
-        let res = data.into_iter()
-            .fold(BTreeMap::new(), |mut acc, e| {
-                acc.insert(e.name, e.version);
-                acc
-            });
+        let data: Vec<Entry> = serde_json::from_str(&text)?;
+        let res = data.into_iter().fold(BTreeMap::new(), |mut acc, e| {
+            acc.insert(e.name, e.version);
+            acc
+        });
         Ok(res)
     }
 }
@@ -54,9 +53,11 @@ pub mod sentryapi {
         let client = reqwest::Client::new();
         let token = std::env::var("SENTRY_TOKEN")?;
 
-        let projects_url = format!("{sentry_url}/api/0/teams/sentry/{env}/projects/",
-                                   sentry_url = &sentry_url,
-                                   env = &env);
+        let projects_url = format!(
+            "{sentry_url}/api/0/teams/sentry/{env}/projects/",
+            sentry_url = &sentry_url,
+            env = &env
+        );
 
         debug!("Fetching {}", projects_url);
         let mut res = client
@@ -69,7 +70,7 @@ pub mod sentryapi {
         }
         let text = res.text()?;
         debug!("Got slugs: {}", text);
-        let data : Vec<Project> = serde_json::from_str(&text)?;
+        let data: Vec<Project> = serde_json::from_str(&text)?;
         let res = data.into_iter().fold(BTreeMap::new(), |mut acc, e| {
             acc.insert(e.name, e.slug);
             acc
@@ -77,7 +78,6 @@ pub mod sentryapi {
         Ok(res)
     }
 }
-
 
 pub mod newrelic {
     use crate::Result;
@@ -114,17 +114,20 @@ pub mod newrelic {
         }
         let text = res.text()?;
         debug!("Got NewRelic data: {}", text);
-        let data : Applications = serde_json::from_str(&text)?;
-        let res = data.applications.into_iter().fold(BTreeMap::new(), |mut acc, e| {
-            let link = format!(
-                "https://rpm.newrelic.com/accounts/{account_id}/applications/{application_id}",
-                account_id = account_id,
-                application_id = e.id
-            );
-            let splits : Vec<_> = e.name.split(' ').collect();
-            acc.insert(splits[0].to_string(), link);
-            acc
-        });
+        let data: Applications = serde_json::from_str(&text)?;
+        let res = data
+            .applications
+            .into_iter()
+            .fold(BTreeMap::new(), |mut acc, e| {
+                let link = format!(
+                    "https://rpm.newrelic.com/accounts/{account_id}/applications/{application_id}",
+                    account_id = account_id,
+                    application_id = e.id
+                );
+                let splits: Vec<_> = e.name.split(' ').collect();
+                acc.insert(splits[0].to_string(), link);
+                acc
+            });
         Ok(res)
     }
 }

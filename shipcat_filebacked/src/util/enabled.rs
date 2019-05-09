@@ -109,21 +109,33 @@ mod tests {
         assert_eq!(partial1.merge(full), full);
         assert_eq!(partial2.merge(full), full);
 
-        assert_eq!(full.merge(partial1), Enabled {
-            enabled: Some(false),
-            item: Some(2),
-        });
-        assert_eq!(full.merge(partial2), Enabled {
-            enabled: Some(true),
-            item: Some(4),
-        });
-        assert_eq!(partial1.merge(partial2), Enabled {
-            enabled: Some(false),
-            item: Some(4),
-        });
-        assert_eq!(partial2.merge(partial1), Enabled {
-            enabled: Some(false),
-            item: Some(4),
-        });
+        assert_eq!(
+            full.merge(partial1),
+            Enabled {
+                enabled: Some(false),
+                item: Some(2),
+            }
+        );
+        assert_eq!(
+            full.merge(partial2),
+            Enabled {
+                enabled: Some(true),
+                item: Some(4),
+            }
+        );
+        assert_eq!(
+            partial1.merge(partial2),
+            Enabled {
+                enabled: Some(false),
+                item: Some(4),
+            }
+        );
+        assert_eq!(
+            partial2.merge(partial1),
+            Enabled {
+                enabled: Some(false),
+                item: Some(4),
+            }
+        );
     }
 }

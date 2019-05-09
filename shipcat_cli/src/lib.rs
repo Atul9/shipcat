@@ -3,10 +3,13 @@
 #![allow(non_snake_case)]
 #![warn(rust_2018_idioms)]
 
-#[macro_use] extern crate serde_derive;
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate serde_derive;
+#[macro_use]
+extern crate log;
 
-#[macro_use] extern crate error_chain;
+#[macro_use]
+extern crate error_chain;
 
 error_chain! {
     types {
@@ -70,22 +73,22 @@ error_chain! {
     }
 }
 
-pub use shipcat_definitions::{Manifest, ConfigType};
-pub use shipcat_definitions::structs;
 pub use shipcat_definitions::config::{self, Config, Team};
-pub use shipcat_definitions::region::{Region, VersionScheme, KongConfig, Webhook, AuditWebhook};
+pub use shipcat_definitions::region::{AuditWebhook, KongConfig, Region, VersionScheme, Webhook};
+pub use shipcat_definitions::structs;
+pub use shipcat_definitions::{ConfigType, Manifest};
 //pub use shipcat_definitions::Product;
 
-/// Convenience listers
-pub mod list;
-/// A post interface to slack using `slack_hook`
-pub mod slack;
-/// A REST interface to grafana using `reqwest`
-pub mod grafana;
 /// Audit objects and API caller
 pub mod audit;
 /// Cluster level operations
 pub mod cluster;
+/// A REST interface to grafana using `reqwest`
+pub mod grafana;
+/// Convenience listers
+pub mod list;
+/// A post interface to slack using `slack_hook`
+pub mod slack;
 
 /// Validation methods of manifests post merge
 pub mod validate;

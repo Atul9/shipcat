@@ -13,23 +13,26 @@ use crate::mockito::mock;
 // use mockito::Matcher;
 
 use crate::shipcat::audit;
-use crate::shipcat::{AuditWebhook};
 use crate::shipcat::helm::direct::UpgradeData;
 use crate::shipcat::webhooks;
+use crate::shipcat::AuditWebhook;
 
 #[test]
 fn audit_does_audit_deployment() {
     let mut whc: BTreeMap<String, String> = BTreeMap::default();
     whc.insert("SHIPCAT_AUDIT_CONTEXT_ID".into(), "egcontextid".into());
-    whc.insert("SHIPCAT_AUDIT_CONTEXT_LINK".into(), "http://eg.server/".into());
+    whc.insert(
+        "SHIPCAT_AUDIT_CONTEXT_LINK".into(),
+        "http://eg.server/".into(),
+    );
     whc.insert("SHIPCAT_AUDIT_REVISION".into(), "egrevision".into());
 
-    let audcfg = AuditWebhook{
+    let audcfg = AuditWebhook {
         url: Url::parse(&format!("{}/audit", mockito::SERVER_URL)).unwrap(),
         token: "1234auth".into(),
     };
     let us = webhooks::UpgradeState::Completed;
-    let ud = UpgradeData{
+    let ud = UpgradeData {
         name: "svc".into(),
         chart: "wtv".into(),
         version: "v1".into(),
@@ -68,7 +71,10 @@ fn audit_does_audit_deployment() {
 fn audit_reconciliation_has_type() {
     let mut whc: BTreeMap<String, String> = BTreeMap::default();
     whc.insert("SHIPCAT_AUDIT_CONTEXT_ID".into(), "egcontextid".into());
-    whc.insert("SHIPCAT_AUDIT_CONTEXT_LINK".into(), "http://eg.server/".into());
+    whc.insert(
+        "SHIPCAT_AUDIT_CONTEXT_LINK".into(),
+        "http://eg.server/".into(),
+    );
     whc.insert("SHIPCAT_AUDIT_REVISION".into(), "egrevision".into());
 
     let arp = audit::AuditReconciliationPayload::new(&whc, "region_name");

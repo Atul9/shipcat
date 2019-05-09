@@ -1,5 +1,5 @@
-use super::{Config, Region};
 use super::Result;
+use super::{Config, Region};
 
 /// Validate the manifest of a service in the services directory
 ///
@@ -70,22 +70,24 @@ pub fn config(conf: Config) -> Result<()> {
     Ok(())
 }
 
-
 // Dumb git diff helper that matches normal service files:
 //
 // Effectively checks:
 // git diff --name-only master | grep ./services/{svc}/*
 fn git_diff_changes() -> Result<Vec<String>> {
-    use std::process::Command;
     use regex::Regex;
+    use std::process::Command;
     let args = ["diff", "--name-only", "origin/master"];
     debug!("git {}", args.join(" "));
     let s = Command::new("git").args(&args).output()?;
     if !s.status.success() {
-        bail!("Subprocess failure from git: {}", s.status.code().unwrap_or(1001))
+        bail!(
+            "Subprocess failure from git: {}",
+            s.status.code().unwrap_or(1001)
+        )
     }
-    let out : String = String::from_utf8_lossy(&s.stdout).into();
-    let err : String = String::from_utf8_lossy(&s.stderr).into();
+    let out: String = String::from_utf8_lossy(&s.stdout).into();
+    let err: String = String::from_utf8_lossy(&s.stderr).into();
     if !err.is_empty() {
         warn!("{} stderr: {}", args.join(" "), err);
     }

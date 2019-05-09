@@ -1,16 +1,16 @@
-use std::fs;
 use std::fmt;
-use std::path::{Path, PathBuf};
+use std::fs;
 use std::fs::File;
 use std::io::Write;
+use std::path::{Path, PathBuf};
 
-use serde_yaml;
-use crate::webhooks::{self, UpgradeState};
+use super::helpers::{self, hexec, hout};
 use super::kube;
 use super::Metadata;
-use super::{Manifest, Config, Region};
-use super::{Result, ResultExt, ErrorKind};
-use super::helpers::{self, hout, hexec};
+use super::{Config, Manifest, Region};
+use super::{ErrorKind, Result, ResultExt};
+use crate::webhooks::{self, UpgradeState};
+use serde_yaml;
 
 /// The different modes we allow `helm upgrade` to run in
 #[derive(PartialEq, Clone, Debug)]
@@ -64,7 +64,8 @@ impl UpgradeMode {
             &UpgradeMode::UpgradeWaitMaybeRollback => "upgraded",
             &UpgradeMode::UpgradeInstallWait => "reconciled",
             &UpgradeMode::UpgradeInstallNoWait => "reconciled (fire and forget)",
-        }.into()
+        }
+        .into()
     }
 }
 
@@ -91,7 +92,7 @@ pub fn rollback(reg: &Region, ud: &UpgradeData, mf: &Manifest) -> Result<()> {
             error!("{}", e);
             webhooks::upgrade_rollback_event(UpgradeState::RollbackFailed, &ud, &reg);
             Err(e)
-        },
+        }
         Ok(_) => {
             let res = kube::await_rollout_status(&mf);
             webhooks::upgrade_rollback_event(UpgradeState::RolledBack, &ud, &reg);
@@ -140,24 +141,32 @@ impl UpgradeData {
     /// (DiffOnly can sneak by early due to it not being technically needed)
     ///
     /// Performs basic sanity checks, and populates canonical values that are reused a lot.
-    pub fn new(mf: &Manifest, hfile: &str, mode: UpgradeMode, exists: bool) ->  Result<Option<UpgradeData>> {
+    pub fn new(
+        mf: &Manifest,
+        hfile: &str,
+        mode: UpgradeMode,
+        exists: bool,
+    ) -> Result<Option<UpgradeData>> {
         let helmdiff = if !exists {
             "".into() // can't diff against what's not there!
         } else {
             let hdiff = diff(mf, hfile, DiffMode::Upgrade)?;
             if mode == UpgradeMode::DiffOnly {
-                return Ok(None)
+                return Ok(None);
             }
             if hdiff.is_empty() && mode != UpgradeMode::UpgradeRecreateWait {
                 debug!("Not upgrading {} - empty diff", mf.name);
-                return Ok(None)
+                return Ok(None);
             }
             hdiff
         };
 
         // version + image MUST be set at this point before calling this for upgrade/install purposes
         // all entry points into this should set mf.version correctly - and call mf.verify
-        let version = mf.version.clone().ok_or_else(|| ErrorKind::ManifestFailure("version".into()))?;
+        let version = mf
+            .version
+            .clone()
+            .ok_or_else(|| ErrorKind::ManifestFailure("version".into()))?;
 
         Ok(Some(UpgradeData {
             name: mf.name.clone(),
@@ -168,7 +177,8 @@ impl UpgradeData {
             region: mf.region.clone(),
             values: hfile.into(),
             namespace: mf.namespace.clone(),
-            mode, version
+            mode,
+            version,
         }))
     }
 
@@ -215,25 +225,18 @@ pub fn upgrade(data: &UpgradeData) -> Result<()> {
 
     // TODO: dedupe
     match data.mode {
-        UpgradeMode::UpgradeWaitMaybeRollback |
-        UpgradeMode::UpgradeWait |
-        UpgradeMode::UpgradeNoWait => {},
+        UpgradeMode::UpgradeWaitMaybeRollback
+        | UpgradeMode::UpgradeWait
+        | UpgradeMode::UpgradeNoWait => {}
         UpgradeMode::UpgradeRecreateWait => {
-            upgradevec.extend_from_slice(&[
-                "--recreate-pods".into(),
-            ]);
-        },
-        UpgradeMode::UpgradeInstall |
-        UpgradeMode::UpgradeInstallNoWait => {
-            upgradevec.extend_from_slice(&[
-                "--install".into(),
-            ]);
-        },
+            upgradevec.extend_from_slice(&["--recreate-pods".into()]);
+        }
+        UpgradeMode::UpgradeInstall | UpgradeMode::UpgradeInstallNoWait => {
+            upgradevec.extend_from_slice(&["--install".into()]);
+        }
         UpgradeMode::UpgradeInstallWait => {
-            upgradevec.extend_from_slice(&[
-                "--install".into(),
-            ]);
-        },
+            upgradevec.extend_from_slice(&["--install".into()]);
+        }
         // TODO: handle apply correctly (depending on case)
         ref u => {
             unimplemented!("Somehow got an uncovered upgrade mode ({:?})", u);
@@ -242,9 +245,7 @@ pub fn upgrade(data: &UpgradeData) -> Result<()> {
 
     // CC service contacts on result
     info!("helm {}", upgradevec.join(" "));
-    hexec(upgradevec).chain_err(||
-        ErrorKind::HelmUpgradeFailure(data.name.clone())
-    )
+    hexec(upgradevec).chain_err(|| ErrorKind::HelmUpgradeFailure(data.name.clone()))
 }
 
 enum DiffMode {
@@ -281,15 +282,16 @@ fn diff(mf: &Manifest, hfile: &str, dmode: DiffMode) -> Result<String> {
     ];
     info!("helm {}", diffvec.join(" "));
     let (hdiffunobfusc, hdifferr, _) = hout(diffvec.clone())?;
-    let helmdiff = helpers::obfuscate_secrets(
-        hdiffunobfusc,
-        mf.get_secrets()
-    );
+    let helmdiff = helpers::obfuscate_secrets(hdiffunobfusc, mf.get_secrets());
     if !hdifferr.is_empty() {
         if hdifferr.starts_with(&format!("Error: \"{}\" has no deployed releases", mf.name)) {
-            let cmd = format!("helm --tiller-namespace={} del --purge {}", namespace, mf.name);
+            let cmd = format!(
+                "helm --tiller-namespace={} del --purge {}",
+                namespace, mf.name
+            );
             let reason = "to let you be able to retry the install/reconcile";
-            error!("Previous installs of {} failed, you need to run: \n\t{}\n{}",
+            error!(
+                "Previous installs of {} failed, you need to run: \n\t{}\n{}",
                 mf.name, cmd, reason
             );
             // TODO: automate above? feels dangerous..
@@ -297,9 +299,14 @@ fn diff(mf: &Manifest, hfile: &str, dmode: DiffMode) -> Result<String> {
             return Ok(format!("no deployed releases of {} - needs purge", mf.name));
         }
         warn!("diff {} stderr: \n{}", mf.name, hdifferr);
-        if ! hdifferr.contains("error copying from local connection to remote stream") &&
-           ! hdifferr.contains("error copying from remote stream to local connection") {
-            bail!("diff plugin for {} returned: {}", mf.name, hdifferr.lines().next().unwrap());
+        if !hdifferr.contains("error copying from local connection to remote stream")
+            && !hdifferr.contains("error copying from remote stream to local connection")
+        {
+            bail!(
+                "diff plugin for {} returned: {}",
+                mf.name,
+                hdifferr.lines().next().unwrap()
+            );
         }
     }
 
@@ -324,7 +331,12 @@ pub fn values(mf: &Manifest, output: Option<String>) -> Result<()> {
         debug!("Writing helm values for {} to {}", mf.name, pth.display());
         let mut f = File::create(&pth)?;
         writeln!(f, "{}", encoded)?;
-        debug!("Wrote helm values for {} to {}: \n{}", mf.name, pth.display(), encoded);
+        debug!(
+            "Wrote helm values for {} to {}: \n{}",
+            mf.name,
+            pth.display(),
+            encoded
+        );
     } else {
         println!("{}\n", encoded);
     }
@@ -334,7 +346,14 @@ pub fn values(mf: &Manifest, output: Option<String>) -> Result<()> {
 /// Analogue of helm template
 ///
 /// Generates helm values to disk, then passes it to helm template
-pub fn template(svc: &str, region: &Region, conf: &Config, ver: Option<String>, mock: bool, output: Option<PathBuf>) -> Result<String> {
+pub fn template(
+    svc: &str,
+    region: &Region,
+    conf: &Config,
+    ver: Option<String>,
+    mock: bool,
+    output: Option<PathBuf>,
+) -> Result<String> {
     let mut mf = if mock {
         shipcat_filebacked::load_manifest(svc, conf, region)?.stub(region)?
     } else {
@@ -372,7 +391,12 @@ pub fn template(svc: &str, region: &Region, conf: &Config, ver: Option<String>, 
         info!("Writing helm template for {} to {}", svc, pth.display());
         let mut f = File::create(&pth)?;
         writeln!(f, "{}", tpl)?;
-        debug!("Wrote helm template for {} to {}: \n{}", svc, pth.display(), tpl);
+        debug!(
+            "Wrote helm template for {} to {}: \n{}",
+            svc,
+            pth.display(),
+            tpl
+        );
     } else {
         println!("{}", tpl);
     }
@@ -414,9 +438,9 @@ pub fn status(svc: &str, conf: &Config, region: &Region) -> Result<()> {
 /// TODO: deprecate (see #183)
 pub fn handle_upgrade_rollbacks(reg: &Region, u: &UpgradeData, mf: &Manifest) -> Result<()> {
     match u.mode {
-        UpgradeMode::UpgradeRecreateWait |
-        UpgradeMode::UpgradeInstall |
-        UpgradeMode::UpgradeWaitMaybeRollback => kube::debug(&mf)?,
+        UpgradeMode::UpgradeRecreateWait
+        | UpgradeMode::UpgradeInstall
+        | UpgradeMode::UpgradeWaitMaybeRollback => kube::debug(&mf)?,
         _ => {}
     }
     if u.mode == UpgradeMode::UpgradeWaitMaybeRollback {
@@ -428,7 +452,12 @@ pub fn handle_upgrade_rollbacks(reg: &Region, u: &UpgradeData, mf: &Manifest) ->
 /// Independent wrapper for helm values
 ///
 /// Completes a manifest and prints it out with the given version
-pub fn values_wrapper(svc: &str, region: &Region, conf: &Config, ver: Option<String>) -> Result<()> {
+pub fn values_wrapper(
+    svc: &str,
+    region: &Region,
+    conf: &Config,
+    ver: Option<String>,
+) -> Result<()> {
     let mut mf = shipcat_filebacked::load_manifest(svc, conf, region)?.complete(region)?;
 
     // template or values does not need version - but respect passed in / manifest
@@ -436,13 +465,21 @@ pub fn values_wrapper(svc: &str, region: &Region, conf: &Config, ver: Option<Str
         mf.version = ver;
     }
     // sanity verify what we changed (no-shoehorning in illegal versions in rolling envs)
-    region.versioningScheme.verify(&mf.version.clone().unwrap())?;
+    region
+        .versioningScheme
+        .verify(&mf.version.clone().unwrap())?;
 
     values(&mf, None)
 }
 
 /// Full helm wrapper for a single upgrade/diff/install
-pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &Region, conf: &Config, ver: Option<String>) -> Result<Option<UpgradeData>> {
+pub fn upgrade_wrapper(
+    svc: &str,
+    mode: UpgradeMode,
+    region: &Region,
+    conf: &Config,
+    ver: Option<String>,
+) -> Result<Option<UpgradeData>> {
     if let Err(e) = webhooks::ensure_requirements(&region) {
         warn!("Could not ensure webhook requirements: {}", e);
     }
@@ -468,7 +505,9 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &Region, conf: &Con
         mf.version = Some(helpers::infer_fallback_version(&svc, &mf.namespace)?);
     };
     // sanity verify what we changed (no-shoehorning in illegal versions in rolling envs)
-    region.versioningScheme.verify(&mf.version.clone().unwrap())?;
+    region
+        .versioningScheme
+        .verify(&mf.version.clone().unwrap())?;
 
     // Template values file
     let hfile = format!("{}.helm.gen.yml", &svc);
@@ -486,21 +525,27 @@ pub fn upgrade_wrapper(svc: &str, mode: UpgradeMode, region: &Region, conf: &Con
                 webhooks::upgrade_event(UpgradeState::Failed, &udata, &region);
                 handle_upgrade_rollbacks(&region, &udata, &mf)?; // for now leave it in..
                 return Err(e);
-            },
+            }
             Ok(_) => {
                 // after helm upgrade / kubectl apply, check rollout status in a loop:
-                if udata.mode == UpgradeMode::UpgradeNoWait || udata.mode == UpgradeMode::UpgradeInstallNoWait || kube::await_rollout_status(&mf)? {
+                if udata.mode == UpgradeMode::UpgradeNoWait
+                    || udata.mode == UpgradeMode::UpgradeInstallNoWait
+                    || kube::await_rollout_status(&mf)?
+                {
                     info!("successfully rolled out {}", &udata.name);
                     webhooks::upgrade_event(UpgradeState::Completed, &udata, &region);
-                }
-                else {
+                } else {
                     let _ = kube::debug_rollout_status(&mf);
                     let _ = kube::debug(&mf);
                     warn!("failed to roll out {}", &udata.name);
                     webhooks::upgrade_event(UpgradeState::Failed, &udata, &region);
                     // if it failed here, rollback in job : TODO: FIX kube-deploy-X jobs
                     handle_upgrade_rollbacks(&region, &udata, &mf)?; // for now leave it in..
-                    return Err(ErrorKind::UpgradeTimeout(mf.name.clone(), mf.estimate_wait_time()).into());
+                    return Err(ErrorKind::UpgradeTimeout(
+                        mf.name.clone(),
+                        mf.estimate_wait_time(),
+                    )
+                    .into());
                 }
             }
         };

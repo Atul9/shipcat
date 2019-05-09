@@ -1,15 +1,14 @@
-use threadpool::ThreadPool;
-use std::sync::mpsc::channel;
 use std::fs;
+use std::sync::mpsc::channel;
+use threadpool::ThreadPool;
 
-use super::{Config, Manifest, Region};
-use super::{UpgradeMode, UpgradeData};
 use super::direct;
 use super::helpers;
 use super::kube;
+use super::{Config, Manifest, Region};
+use super::{Error, ErrorKind, Result};
+use super::{UpgradeData, UpgradeMode};
 use crate::webhooks::{self, UpgradeState};
-use super::{Result, Error, ErrorKind};
-
 
 /// Stable threaded mass helm operation
 ///
@@ -18,14 +17,23 @@ use super::{Result, Error, ErrorKind};
 /// The helm operations does --wait for upgrades, but this parallelises the wait
 /// and catches any errors.
 /// All operations run to completion and the first error is returned at end if any.
-pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, umode: UpgradeMode, n_workers: usize) -> Result<()> {
+pub fn reconcile(
+    svcs: Vec<Manifest>,
+    conf: &Config,
+    region: &Region,
+    umode: UpgradeMode,
+    n_workers: usize,
+) -> Result<()> {
     let n_jobs = svcs.len();
     let pool = ThreadPool::new(n_workers);
-    info!("Starting {} parallel helm jobs using {} workers", n_jobs, n_workers);
+    info!(
+        "Starting {} parallel helm jobs using {} workers",
+        n_jobs, n_workers
+    );
     webhooks::reconcile_event(UpgradeState::Pending, &region);
 
     // get a list of services for find_redundant_services (done at end)
-    let expected : Vec<String> = svcs.iter().map(|mf| mf.name.clone()).collect();
+    let expected: Vec<String> = svcs.iter().map(|mf| mf.name.clone()).collect();
 
     let (tx, rx) = channel();
     for mf in svcs {
@@ -38,32 +46,41 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, umode: Upg
         pool.execute(move || {
             info!("Running {} for {}", mode, mf.name);
             let res = reconcile_worker(mf, mode, config, reg);
-            tx.send(res).expect("channel will be there waiting for the pool");
+            tx.send(res)
+                .expect("channel will be there waiting for the pool");
         });
     }
 
     // wait for threads collect errors
-    let res = rx.iter().take(n_jobs).map(|r| {
-        match &r {
-            &Ok(Some(ref ud)) => debug!("{} {}", ud.mode, ud.name),
-            &Ok(None) => {},
-            &Err(ref e) => warn!("{} error: {}", umode, e),
-        }
-        r
-    }).filter_map(Result::err).collect::<Vec<_>>();
+    let res = rx
+        .iter()
+        .take(n_jobs)
+        .map(|r| {
+            match &r {
+                &Ok(Some(ref ud)) => debug!("{} {}", ud.mode, ud.name),
+                &Ok(None) => {}
+                &Err(ref e) => warn!("{} error: {}", umode, e),
+            }
+            r
+        })
+        .filter_map(Result::err)
+        .collect::<Vec<_>>();
 
     // propagate first non-ignorable error if exists
     for e in res {
         match e {
-            Error(ErrorKind::MissingRollingVersion(svc),_) => {
+            Error(ErrorKind::MissingRollingVersion(svc), _) => {
                 // This only happens in rolling envs because version is mandatory in other envs
-                warn!("'{}' missing version for {} - please add or install", svc, region.name);
-            },
+                warn!(
+                    "'{}' missing version for {} - please add or install",
+                    svc, region.name
+                );
+            }
             // remaining cases not ignorable
             _ => {
                 webhooks::reconcile_event(UpgradeState::Failed, &region);
-                return Err(e)
-            },
+                return Err(e);
+            }
         }
     }
     webhooks::reconcile_event(UpgradeState::Completed, &region);
@@ -73,12 +90,16 @@ pub fn reconcile(svcs: Vec<Manifest>, conf: &Config, region: &Region, umode: Upg
     Ok(())
 }
 
-
 /// Parallel reconcile worker that reports information sequentially
 ///
 /// This logs errors and upgrade successes individually.
 /// NB: This can reconcile lock-step upgraded services at the moment.
-pub fn reconcile_worker(mut mf: Manifest, mode: UpgradeMode, _conf: Config, region: Region) -> Result<Option<UpgradeData>> {
+pub fn reconcile_worker(
+    mut mf: Manifest,
+    mode: UpgradeMode,
+    _conf: Config,
+    region: Region,
+) -> Result<Option<UpgradeData>> {
     mf = mf.complete(&region)?;
     let svc = mf.name.clone();
 
@@ -99,15 +120,19 @@ pub fn reconcile_worker(mut mf: Manifest, mode: UpgradeMode, _conf: Config, regi
             }
         }
     };
-    debug!("reconcile worker {} - exists?{} fallback:{}", mf.name, exists, fallback);
+    debug!(
+        "reconcile worker {} - exists?{} fallback:{}",
+        mf.name, exists, fallback
+    );
 
     // only override version if not in manifests
     if mf.version.is_none() {
-         mf.version = Some(fallback)
+        mf.version = Some(fallback)
     };
     // sanity verify what we changed (no-shoehorning in illegal versions in rolling envs)
-    region.versioningScheme.verify(&mf.version.clone().unwrap())?;
-
+    region
+        .versioningScheme
+        .verify(&mf.version.clone().unwrap())?;
 
     // Template values file
     let hfile = format!("{}.helm.gen.yml", &svc);
@@ -125,7 +150,7 @@ pub fn reconcile_worker(mut mf: Manifest, mode: UpgradeMode, _conf: Config, regi
                 error!("{} from {}", e, udata.name);
                 return Err(e);
             }
-            Ok(_)  => {
+            Ok(_) => {
                 // after helm upgrade / kubectl apply, check rollout status in a loop:
                 if kube::await_rollout_status(&mf)? {
                     info!("successfully rolled out {}", &udata.name);
@@ -136,7 +161,11 @@ pub fn reconcile_worker(mut mf: Manifest, mode: UpgradeMode, _conf: Config, regi
                     kube::debug(&mf)?;
                     webhooks::upgrade_event(UpgradeState::Failed, &udata, &region);
                     // need set this as a reconcile level error
-                    return Err(ErrorKind::UpgradeTimeout(mf.name.clone(), mf.estimate_wait_time()).into());
+                    return Err(ErrorKind::UpgradeTimeout(
+                        mf.name.clone(),
+                        mf.estimate_wait_time(),
+                    )
+                    .into());
                 }
             }
         }

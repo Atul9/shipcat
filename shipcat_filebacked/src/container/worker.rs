@@ -1,11 +1,11 @@
 use merge::Merge;
 
-use shipcat_definitions::Result;
-use shipcat_definitions::structs::Worker;
 use shipcat_definitions::structs::autoscaling::AutoScaling;
+use shipcat_definitions::structs::Worker;
+use shipcat_definitions::Result;
 
+use super::container::{ContainerBuildParams, ContainerSource};
 use crate::util::{Build, Require};
-use super::container::{ContainerSource, ContainerBuildParams};
 
 #[derive(Deserialize, Merge, Clone, Default)]
 #[serde(default, rename_all = "camelCase")]

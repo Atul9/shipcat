@@ -1,8 +1,8 @@
 mod common;
 use crate::common::setup;
 
-use shipcat::kong::{KongfigOutput, generate_kong_output};
-use shipcat_definitions::structs::kongfig::{ConsumerCredentials, PluginBase, ApiPlugin};
+use shipcat::kong::{generate_kong_output, KongfigOutput};
+use shipcat_definitions::structs::kongfig::{ApiPlugin, ConsumerCredentials, PluginBase};
 use shipcat_definitions::Config;
 use shipcat_definitions::ConfigType;
 
@@ -19,7 +19,7 @@ macro_rules! plugin_attributes {
 macro_rules! assert_plugin_removed {
     ( $name:expr, $plugin:expr, $type:path ) => {
         match $plugin {
-            $type(PluginBase::Removed) => {},
+            $type(PluginBase::Removed) => {}
             $type(_) => panic!("{} plugin is not removed", $name),
             _ => panic!("plugin is not a {} plugin", $name),
         }
@@ -50,14 +50,16 @@ fn kong_test() {
     if let ConsumerCredentials::Jwt(attrs) = &output.consumers[1].credentials[0] {
         assert_eq!(attrs.key, "https://my-issuer/");
         assert_eq!(attrs.algorithm, "RS256");
-        assert_eq!(attrs.rsa_public_key, "-----BEGIN PUBLIC KEY-----\nmy-key\n-----END PUBLIC KEY-----");
+        assert_eq!(
+            attrs.rsa_public_key,
+            "-----BEGIN PUBLIC KEY-----\nmy-key\n-----END PUBLIC KEY-----"
+        );
     } else {
         panic!("Not a JWT credential")
     }
 
     assert_eq!(output.consumers[2].username, "anonymous");
     assert!(output.consumers[2].credentials.is_empty());
-
 
     assert_eq!(output.apis.len(), 2);
 
@@ -66,9 +68,16 @@ fn kong_test() {
     assert_eq!(api.name, "fake-ask");
     assert_eq!(api.attributes.uris, Some(vec!["/ai-auth".to_string()]));
     assert_eq!(api.attributes.strip_uri, false);
-    assert_eq!(api.attributes.upstream_url, "http://fake-ask.dev.svc.cluster.local");
+    assert_eq!(
+        api.attributes.upstream_url,
+        "http://fake-ask.dev.svc.cluster.local"
+    );
 
-    let attr = plugin_attributes!("CorrelationId", api.plugins.remove(0), ApiPlugin::CorrelationId);
+    let attr = plugin_attributes!(
+        "CorrelationId",
+        api.plugins.remove(0),
+        ApiPlugin::CorrelationId
+    );
     assert_eq!(attr.enabled, true);
     assert_eq!(attr.config.header_name, "babylon-request-id");
 
@@ -83,7 +92,11 @@ fn kong_test() {
     assert_eq!(attr.config.token_expiration, 1800);
 
     assert_plugin_removed!("Jwt", api.plugins.remove(0), ApiPlugin::Jwt);
-    assert_plugin_removed!("JwtValidator", api.plugins.remove(0), ApiPlugin::JwtValidator);
+    assert_plugin_removed!(
+        "JwtValidator",
+        api.plugins.remove(0),
+        ApiPlugin::JwtValidator
+    );
 
     assert!(api.plugins.is_empty());
 
@@ -92,10 +105,17 @@ fn kong_test() {
     assert_eq!(api.name, "fake-storage");
     assert_eq!(api.attributes.uris, Some(vec!["/fake-storage".to_string()]));
     assert_eq!(api.attributes.strip_uri, false);
-    assert_eq!(api.attributes.upstream_url, "http://fake-storage.dev.svc.cluster.local");
+    assert_eq!(
+        api.attributes.upstream_url,
+        "http://fake-storage.dev.svc.cluster.local"
+    );
     assert_eq!(api.plugins.len(), 8);
 
-    let attr = plugin_attributes!("CorrelationId", api.plugins.remove(0), ApiPlugin::CorrelationId);
+    let attr = plugin_attributes!(
+        "CorrelationId",
+        api.plugins.remove(0),
+        ApiPlugin::CorrelationId
+    );
     assert_eq!(attr.enabled, true);
     assert_eq!(attr.config.header_name, "babylon-request-id");
 
@@ -103,7 +123,11 @@ fn kong_test() {
     assert_eq!(attr.enabled, true);
 
     assert_plugin_removed!("Oauth2", api.plugins.remove(0), ApiPlugin::Oauth2);
-    assert_plugin_removed!("Oauth2Extension", api.plugins.remove(0), ApiPlugin::Oauth2Extension);
+    assert_plugin_removed!(
+        "Oauth2Extension",
+        api.plugins.remove(0),
+        ApiPlugin::Oauth2Extension
+    );
 
     let attr = plugin_attributes!("Jwt", api.plugins.remove(0), ApiPlugin::Jwt);
     assert_eq!(attr.enabled, true);
@@ -112,15 +136,30 @@ fn kong_test() {
     assert_eq!(attr.config.key_claim_name, "kid");
     assert_eq!(attr.config.anonymous, Some("".to_string()));
 
-    let attr = plugin_attributes!("JwtValidator", api.plugins.remove(0), ApiPlugin::JwtValidator);
+    let attr = plugin_attributes!(
+        "JwtValidator",
+        api.plugins.remove(0),
+        ApiPlugin::JwtValidator
+    );
     assert_eq!(attr.enabled, true);
-    assert_eq!(attr.config.allowed_audiences, vec!["https://babylonhealth.com"]);
+    assert_eq!(
+        attr.config.allowed_audiences,
+        vec!["https://babylonhealth.com"]
+    );
     assert_eq!(attr.config.expected_region, "dev-uk");
     assert_eq!(attr.config.expected_scope, "internal");
     assert_eq!(attr.config.allow_invalid_tokens, false);
 
-    assert_plugin_removed!("JsonCookiesToHeaders", api.plugins.remove(0), ApiPlugin::JsonCookiesToHeaders);
-    assert_plugin_removed!("JsonCookiesCsrf", api.plugins.remove(0), ApiPlugin::JsonCookiesCsrf);
+    assert_plugin_removed!(
+        "JsonCookiesToHeaders",
+        api.plugins.remove(0),
+        ApiPlugin::JsonCookiesToHeaders
+    );
+    assert_plugin_removed!(
+        "JsonCookiesCsrf",
+        api.plugins.remove(0),
+        ApiPlugin::JsonCookiesCsrf
+    );
 
     assert!(api.plugins.is_empty());
 }

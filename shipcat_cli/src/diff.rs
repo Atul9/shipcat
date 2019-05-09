@@ -1,8 +1,7 @@
-use crate::kube;
 use super::{Config, Region, Result};
+use crate::kube;
 use shipcat_definitions::Crd;
 use std::process::Command;
-
 
 fn git(args: &[&str]) -> Result<()> {
     debug!("git {}", args.join(" "));
@@ -25,7 +24,8 @@ pub fn values_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool> 
 
     // move git to get before state:
     git(&["checkout", "master", "--quiet"])?;
-    let needs_stash = git(&["diff", "--quiet", "--exit-code"]).is_err() || git(&["diff", "--cached", "--quiet", "--exit-code"]).is_err();
+    let needs_stash = git(&["diff", "--quiet", "--exit-code"]).is_err()
+        || git(&["diff", "--cached", "--quiet", "--exit-code"]).is_err();
     if needs_stash {
         git(&["stash", "--quiet"])?;
     }
@@ -56,14 +56,16 @@ pub fn template_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool
 
     // move git to get before state:
     git(&["checkout", "master", "--quiet"])?;
-    let needs_stash = git(&["diff", "--quiet", "--exit-code"]).is_err() || git(&["diff", "--cached", "--quiet", "--exit-code"]).is_err();
+    let needs_stash = git(&["diff", "--quiet", "--exit-code"]).is_err()
+        || git(&["diff", "--cached", "--quiet", "--exit-code"]).is_err();
     if needs_stash {
         git(&["stash", "--quiet"])?;
     }
 
     // compute old state:
     let beforepth = Path::new(".").join("before.shipcat.gen.yml");
-    let _before = helm::direct::template(&svc, &region, &conf, None, mock, Some(beforepth.clone()))?;
+    let _before =
+        helm::direct::template(&svc, &region, &conf, None, mock, Some(beforepth.clone()))?;
 
     // move git back
     if needs_stash {
@@ -82,10 +84,9 @@ pub fn template_vs_git(svc: &str, conf: &Config, region: &Region) -> Result<bool
     Ok(s.success())
 }
 
-
-use std::path::Path;
 use std::fs::{self, File};
 use std::io::Write;
+use std::path::Path;
 
 /// Diff values using kubectl diff
 ///

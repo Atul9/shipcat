@@ -1,5 +1,5 @@
+use serde::de::{Deserialize, Deserializer, Error, Visitor};
 use std::fmt;
-use serde::de::{Visitor, Deserialize, Deserializer, Error};
 
 use super::Build;
 
@@ -48,11 +48,17 @@ impl<'de> Visitor<'de> for RelaxedStringVisitor {
         formatter.write_str("a string, number, boolean or null")
     }
 
-    fn visit_string<E>(self, v: String) -> Result<Self::Value, E> where E: Error {
+    fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         Ok(RelaxedString(v))
     }
 
-    fn visit_unit<E>(self) -> Result<Self::Value, E> where E: Error {
+    fn visit_unit<E>(self) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         // This is weird behaviour, but matches existing Shipcat functionality
         Ok(RelaxedString("~".to_string()))
     }
@@ -69,7 +75,7 @@ impl<'de> Visitor<'de> for RelaxedStringVisitor {
 
 #[cfg(test)]
 mod tests {
-    use super::{RelaxedString};
+    use super::RelaxedString;
 
     #[test]
     fn deserialize_string() {

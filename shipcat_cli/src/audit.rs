@@ -2,18 +2,20 @@ use std::collections::BTreeMap;
 
 use serde::Serialize;
 
+use chrono::{SecondsFormat, Utc};
 use url::Url;
-use chrono::{Utc, SecondsFormat};
 
-use crate::webhooks::UpgradeState;
-use super::{Result, ResultExt, ErrorKind};
-use super::{AuditWebhook};
+use super::AuditWebhook;
+use super::{ErrorKind, Result, ResultExt};
 use crate::helm::direct::UpgradeData;
+use crate::webhooks::UpgradeState;
 
 /// Payload that gets sent via audit webhook
 #[derive(Serialize, Clone)]
 pub struct AuditEvent<T>
-where T: Serialize + Clone + AuditType {
+where
+    T: Serialize + Clone + AuditType,
+{
     /// Payload type
     #[serde(rename = "type")]
     pub domain_type: String,
@@ -31,17 +33,20 @@ where T: Serialize + Clone + AuditType {
 }
 
 impl<T> AuditEvent<T>
-where T: Serialize + Clone + AuditType {
+where
+    T: Serialize + Clone + AuditType,
+{
     /// Timestamped payload skeleton
     pub fn new(whc: &BTreeMap<String, String>, status: &UpgradeState, payload: T) -> Self {
-        AuditEvent{
+        AuditEvent {
             domain_type: AuditType::get_domain_type(&payload),
             timestamp: Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true),
             status: status.clone(),
             context_id: whc["SHIPCAT_AUDIT_CONTEXT_ID"].clone(),
-            context_link: whc.get("SHIPCAT_AUDIT_CONTEXT_LINK")
-                            .and_then(|l| Url::parse(&l).ok()),
-            payload
+            context_link: whc
+                .get("SHIPCAT_AUDIT_CONTEXT_LINK")
+                .and_then(|l| Url::parse(&l).ok()),
+            payload,
         }
     }
 }
@@ -74,7 +79,10 @@ impl AuditDeploymentPayload {
         let manifests_revision = whc["SHIPCAT_AUDIT_REVISION"].clone();
         Self {
             id: format!("{}-{}-{}-{}", manifests_revision, region, service, version),
-            manifests_revision, region, service, version,
+            manifests_revision,
+            region,
+            service,
+            version,
         }
     }
 }
@@ -91,7 +99,8 @@ impl AuditReconciliationPayload {
         let region = r.into();
         Self {
             id: format!("{}-{}", manifests_revision, region),
-            manifests_revision, region,
+            manifests_revision,
+            region,
         }
     }
 }
@@ -102,24 +111,39 @@ impl AuditType for AuditReconciliationPayload {
     }
 }
 
-pub fn audit_deployment(us: &UpgradeState, ud: &UpgradeData, audcfg: &AuditWebhook, whc: BTreeMap<String, String>) -> Result<()> {
+pub fn audit_deployment(
+    us: &UpgradeState,
+    ud: &UpgradeData,
+    audcfg: &AuditWebhook,
+    whc: BTreeMap<String, String>,
+) -> Result<()> {
     let ae = AuditEvent::new(&whc, &us, AuditDeploymentPayload::new(&whc, &ud));
     audit(ae, &audcfg)
 }
 
-pub fn audit_reconciliation(us: &UpgradeState, region: &str, audcfg: &AuditWebhook, whc: BTreeMap<String, String>) -> Result<()> {
+pub fn audit_reconciliation(
+    us: &UpgradeState,
+    region: &str,
+    audcfg: &AuditWebhook,
+    whc: BTreeMap<String, String>,
+) -> Result<()> {
     let ae = AuditEvent::new(&whc, &us, AuditReconciliationPayload::new(&whc, region));
     audit(ae, &audcfg)
 }
 
 fn audit<T: Serialize + Clone + AuditType>(ae: AuditEvent<T>, audcfg: &AuditWebhook) -> Result<()> {
     let endpoint = &audcfg.url;
-    debug!("event status: {}, url: {:?}", serde_json::to_string(&ae.status)?, endpoint);
+    debug!(
+        "event status: {}, url: {:?}",
+        serde_json::to_string(&ae.status)?,
+        endpoint
+    );
 
     let mkerr = || ErrorKind::Url(endpoint.clone());
     let client = reqwest::Client::new();
 
-    let _res = client.post(endpoint.clone())
+    let _res = client
+        .post(endpoint.clone())
         .bearer_auth(audcfg.token.clone())
         .json(&ae)
         .send()

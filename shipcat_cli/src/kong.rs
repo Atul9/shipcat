@@ -1,10 +1,10 @@
-use std::io::{self, Write};
 use std::collections::BTreeMap;
+use std::io::{self, Write};
 
-use super::{Result, Region, Config, KongConfig};
-use super::structs::Kong;
 use super::structs::kongfig::{kongfig_apis, kongfig_consumers};
-use super::structs::kongfig::{Api, Consumer, Plugin, Upstream, Certificate};
+use super::structs::kongfig::{Api, Certificate, Consumer, Plugin, Upstream};
+use super::structs::Kong;
+use super::{Config, KongConfig, Region, Result};
 
 /// KongOutput matches the format expected by the Kong Configurator script
 #[derive(Serialize)]
@@ -22,7 +22,7 @@ pub struct KongfigOutput {
     pub consumers: Vec<Consumer>,
     pub plugins: Vec<Plugin>,
     pub upstreams: Vec<Upstream>,
-    pub certificates: Vec<Certificate>
+    pub certificates: Vec<Certificate>,
 }
 
 impl KongfigOutput {
@@ -49,7 +49,7 @@ struct KongCrdOutput {
 }
 #[derive(Serialize)]
 struct Metadata {
-    name: String
+    name: String,
 }
 impl KongCrdOutput {
     fn new(region: &str, data: KongOutput) -> Self {
@@ -71,7 +71,7 @@ pub fn generate_kong_output(conf: &Config, region: &Region) -> Result<KongOutput
     for mf in shipcat_filebacked::available(conf, region)? {
         debug!("Scanning service {:?}", mf);
         if let Some(k) = mf.kong {
-           apis.insert(mf.base.name, k);
+            apis.insert(mf.base.name, k);
         }
     }
 
@@ -79,7 +79,10 @@ pub fn generate_kong_output(conf: &Config, region: &Region) -> Result<KongOutput
     for (name, api) in region.kong.extra_apis.clone() {
         apis.insert(name, api);
     }
-    Ok(KongOutput { apis, kong: region.kong.clone() })
+    Ok(KongOutput {
+        apis,
+        kong: region.kong.clone(),
+    })
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -97,7 +100,7 @@ pub fn output(conf: &Config, region: &Region, mode: KongOutputMode) -> Result<()
         KongOutputMode::Crd => {
             let res = KongCrdOutput::new(&region.name, data);
             serde_yaml::to_string(&res)?
-        },
+        }
         KongOutputMode::Kongfig => {
             let res = KongfigOutput::new(data, region);
             serde_yaml::to_string(&res)?

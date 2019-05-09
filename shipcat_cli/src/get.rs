@@ -1,9 +1,8 @@
+use semver::Version;
 /// This file contains the `shipcat get` subcommand
 use std::collections::BTreeMap;
-use semver::Version;
 
-use super::{Config, Team, Region, Result};
-
+use super::{Config, Region, Result, Team};
 
 // ----------------------------------------------------------------------------
 // Simple reducers
@@ -61,7 +60,10 @@ pub fn codeowners(conf: &Config) -> Result<Vec<String>> {
                 output.push(format!("services/{}/* {}", mf.name, ghids.join(" ")));
             }
         } else {
-            warn!("No team found for {} in shipcat.conf - ignoring {}", md.team, mf.name);
+            warn!(
+                "No team found for {} in shipcat.conf - ignoring {}",
+                md.team, mf.name
+            );
         }
     }
     println!("{}", output.join("\n"));
@@ -87,10 +89,15 @@ pub fn vaultpolicy(conf: &Config, region: &Region, team_name: &str) -> Result<St
         bail!("Team '{}' does not exist in shipcat.conf", team_name);
     };
     if team.githubAdmins.is_none() {
-        warn!("Team '{}' does not define a githubAdmins team in shipcat.conf", team.name);
+        warn!(
+            "Team '{}' does not define a githubAdmins team in shipcat.conf",
+            team.name
+        );
     }
     let mfs = shipcat_filebacked::all(conf)?;
-    let output = region.vault.make_policy(mfs, team.clone(), region.environment.clone())?;
+    let output = region
+        .vault
+        .make_policy(mfs, team.clone(), region.environment.clone())?;
     println!("{}", output);
     Ok(output)
 }
@@ -200,23 +207,28 @@ pub fn apistatus(conf: &Config, reg: &Region) -> Result<()> {
 
     // Get extra API Info from Config
     for (name, api) in reg.kong.extra_apis.clone() {
-        services.insert(name, APIServiceParams {
-            uris: api.uris.unwrap_or("".into()),
-            hosts: api.hosts.join(","),
-            internal: api.internal,
-            publiclyAccessible: api.publiclyAccessible,
-            // TODO [DIP-499]: `extra_apis` do not support `gate` confs
-            websockets: false,
-        });
+        services.insert(
+            name,
+            APIServiceParams {
+                uris: api.uris.unwrap_or("".into()),
+                hosts: api.hosts.join(","),
+                internal: api.internal,
+                publiclyAccessible: api.publiclyAccessible,
+                // TODO [DIP-499]: `extra_apis` do not support `gate` confs
+                websockets: false,
+            },
+        );
     }
 
-    let output = APIStatusOutput{environment, services};
+    let output = APIStatusOutput {
+        environment,
+        services,
+    };
     println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
 }
 
 // ----------------------------------------------------------------------------
-
 
 use super::structs::ResourceRequirements;
 use shipcat_definitions::math::ResourceTotals;
@@ -240,7 +252,10 @@ impl ResourceBreakdown {
         for t in tx {
             teams.insert(t.name, ResourceTotals::default());
         }
-        ResourceBreakdown { teams, totals: ResourceTotals::default() }
+        ResourceBreakdown {
+            teams,
+            totals: ResourceTotals::default(),
+        }
     }
 
     /// Round all numbers to gigs and full cores (for all teams)
@@ -255,32 +270,36 @@ impl ResourceBreakdown {
     }
 }
 
-
 /// Compute resource usage for all available manifests in a region.
 fn resources_region(conf: &Config, region: &Region) -> Result<ResourceBreakdown> {
     let mut bd = ResourceBreakdown::new(conf.teams.clone()); // zero for all the things
 
-    let mut sum : ResourceRequirements<f64> = Default::default();
-    let mut extra : ResourceRequirements<f64> = Default::default(); // autoscaling limits
+    let mut sum: ResourceRequirements<f64> = Default::default();
+    let mut extra: ResourceRequirements<f64> = Default::default(); // autoscaling limits
 
     for svc in shipcat_filebacked::available(conf, region)? {
         let mf = shipcat_filebacked::load_manifest(&svc.base.name, conf, region)?;
         if let Some(ref md) = mf.metadata {
-            let ResourceTotals { base: sb, extra: se } = mf.compute_resource_totals()?;
+            let ResourceTotals {
+                base: sb,
+                extra: se,
+            } = mf.compute_resource_totals()?;
             sum += sb.clone();
             extra += se.clone();
             let e = bd.teams.get_mut(&md.team).unwrap(); // exists by ResourceBreakdown::new
             e.base += sb.clone();
             e.extra += se.clone();
         } else {
-            bail!("{} service does not have resources specification and metadata", mf.name)
+            bail!(
+                "{} service does not have resources specification and metadata",
+                mf.name
+            )
         }
     }
     bd.totals.base = sum;
     bd.totals.extra = extra;
     Ok(bd)
 }
-
 
 /// Resource use for a single region
 pub fn resources(conf: &Config, region: &Region) -> Result<()> {

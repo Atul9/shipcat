@@ -1,12 +1,12 @@
+use chrono::Utc;
 ///
 /// Interface for adding grafana annotations about deploys
 ///
 use reqwest;
-use chrono::Utc;
-use std::env;
 use serde_json::json;
+use std::env;
 
-use super::{Result, ErrorKind, ResultExt};
+use super::{ErrorKind, Result, ResultExt};
 
 /// At what time the annotation should be made
 #[derive(Debug)]
@@ -34,23 +34,21 @@ pub struct Annotation {
 
 /// Extracts grafana URL + HTTP scheme from environment
 pub fn env_hook_url() -> Result<String> {
-    env::var("GRAFANA_SHIPCAT_HOOK_URL")
-        .map_err(|_| ErrorKind::MissingGrafanaUrl.into())
+    env::var("GRAFANA_SHIPCAT_HOOK_URL").map_err(|_| ErrorKind::MissingGrafanaUrl.into())
 }
 
 /// Extracts grafana API key from environment
 pub fn env_token() -> Result<String> {
-    env::var("GRAFANA_SHIPCAT_TOKEN")
-        .map_err(|_| ErrorKind::MissingGrafanaToken.into())
+    env::var("GRAFANA_SHIPCAT_TOKEN").map_err(|_| ErrorKind::MissingGrafanaToken.into())
 }
 
 /// Convert timespec to UNIX time, in milliseconds
 fn unix_timestamp(spec: &TimeSpec) -> Result<u64> {
-  let timestamp = match spec {
-    TimeSpec::Now => Utc::now().timestamp_millis() as u64,
-    TimeSpec::Time(timestamp) => *timestamp
-  };
-  Ok(timestamp)
+    let timestamp = match spec {
+        TimeSpec::Now => Utc::now().timestamp_millis() as u64,
+        TimeSpec::Time(timestamp) => *timestamp,
+    };
+    Ok(timestamp)
 }
 
 /// Create an annotation for a deployment using grafana's REST API
@@ -82,7 +80,8 @@ pub fn create(annotation: Annotation) -> Result<()> {
     let mkerr = || ErrorKind::Url(url.clone());
     let client = reqwest::Client::new();
 
-    client.post(url.clone())
+    client
+        .post(url.clone())
         .bearer_auth(hook_token)
         .json(&data)
         .send()

@@ -1,8 +1,8 @@
 use regex::Regex;
 
-use shipcat_definitions::{Result};
+use shipcat_definitions::Result;
 
-use crate::util::{Build};
+use crate::util::Build;
 
 #[derive(Deserialize, Clone)]
 pub struct ImageNameSource(String);
@@ -20,7 +20,10 @@ impl Build<String, ()> for ImageNameSource {
         // A name component may not start or end with a separator.
         let re = Regex::new(r"^([^:/_]+(:\d+)?/)?([a-z\d._-]+/)*[a-z\d._-]+$").unwrap();
         if !re.is_match(&image) {
-            bail!("The image {} does not match a valid image repository", image);
+            bail!(
+                "The image {} does not match a valid image repository",
+                image
+            );
         }
         Ok(image)
     }
@@ -45,17 +48,15 @@ impl Build<String, ()> for ImageTagSource {
 
 #[cfg(test)]
 mod tests {
-    use crate::util::{Build};
     use super::{ImageNameSource, ImageTagSource};
+    use crate::util::Build;
 
     macro_rules! assert_valid {
-        ( $source_type:path, $expected:expr ) => {
-            {
-                let source = $source_type($expected.to_string());
-                let actual = source.build(&()).unwrap();
-                assert_eq!($expected, actual);
-            }
-        };
+        ( $source_type:path, $expected:expr ) => {{
+            let source = $source_type($expected.to_string());
+            let actual = source.build(&()).unwrap();
+            assert_eq!($expected, actual);
+        }};
     }
 
     #[test]
@@ -66,8 +67,12 @@ mod tests {
         assert_valid!(ImageTagSource, "0123");
         assert_valid!(ImageTagSource, "1.2.3-beta_456");
 
-        ImageTagSource("foo/bar".to_string()).build(&()).unwrap_err();
-        ImageTagSource("bar:latest".to_string()).build(&()).unwrap_err();
+        ImageTagSource("foo/bar".to_string())
+            .build(&())
+            .unwrap_err();
+        ImageTagSource("bar:latest".to_string())
+            .build(&())
+            .unwrap_err();
     }
 
     #[test]
@@ -80,7 +85,11 @@ mod tests {
         assert_valid!(ImageNameSource, "quay.io:80/foo/bar");
         assert_valid!(ImageNameSource, "quay.io:80/foo/bar/baz");
 
-        ImageNameSource("alpine:latest".to_string()).build(&()).unwrap_err();
-        ImageNameSource("foo/bar:latest".to_string()).build(&()).unwrap_err();
+        ImageNameSource("alpine:latest".to_string())
+            .build(&())
+            .unwrap_err();
+        ImageNameSource("foo/bar:latest".to_string())
+            .build(&())
+            .unwrap_err();
     }
 }

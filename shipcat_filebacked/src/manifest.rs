@@ -3,16 +3,18 @@ use std::collections::BTreeMap;
 
 use shipcat_definitions::structs::{
     autoscaling::AutoScaling, security::DataHandling, tolerations::Tolerations, volume::Volume,
-    ConfigMap, Dependency, Gate, HealthCheck, HostAlias,
-    Kafka, LifeCycle, Metadata, PersistentVolume, Port, Probe, Rbac,
-    RollingUpdate, VaultOpts, VolumeMount,
+    ConfigMap, Dependency, Gate, HealthCheck, HostAlias, Kafka, LifeCycle, Metadata,
+    PersistentVolume, Port, Probe, Rbac, RollingUpdate, VaultOpts, VolumeMount,
 };
-use shipcat_definitions::{Config, Manifest, BaseManifest, Region, Result};
+use shipcat_definitions::{BaseManifest, Config, Manifest, Region, Result};
 
-use super::{SimpleManifest};
-use super::container::{ContainerBuildParams, CronJobSource, JobSource, SidecarSource, InitContainerSource, EnvVarsSource, WorkerSource, ResourceRequirementsSource, ImageNameSource, ImageTagSource};
-use super::kong::{KongSource, KongBuildParams};
+use super::container::{
+    ContainerBuildParams, CronJobSource, EnvVarsSource, ImageNameSource, ImageTagSource,
+    InitContainerSource, JobSource, ResourceRequirementsSource, SidecarSource, WorkerSource,
+};
+use super::kong::{KongBuildParams, KongSource};
 use super::util::{Build, Enabled, RelaxedString, Require};
+use super::SimpleManifest;
 
 /// Main manifest, deserialized from `shipcat.yml`.
 #[derive(Deserialize, Default)]
@@ -132,8 +134,14 @@ impl Build<Manifest, (Config, Region)> for ManifestSource {
             externalPort: overrides.external_port,
             health: overrides.health,
             dependencies: overrides.dependencies.unwrap_or_default(),
-            workers: overrides.workers.unwrap_or_default().build(&container_build_params)?,
-            sidecars: overrides.sidecars.unwrap_or_default().build(&container_build_params)?,
+            workers: overrides
+                .workers
+                .unwrap_or_default()
+                .build(&container_build_params)?,
+            sidecars: overrides
+                .sidecars
+                .unwrap_or_default()
+                .build(&container_build_params)?,
             readinessProbe: overrides.readiness_probe,
             livenessProbe: overrides.liveness_probe,
             lifecycle: overrides.lifecycle,
@@ -141,12 +149,21 @@ impl Build<Manifest, (Config, Region)> for ManifestSource {
             autoScaling: overrides.auto_scaling,
             tolerations: overrides.tolerations.unwrap_or_default(),
             hostAliases: overrides.host_aliases.unwrap_or_default(),
-            initContainers: overrides.init_containers.unwrap_or_default().build(&container_build_params)?,
+            initContainers: overrides
+                .init_containers
+                .unwrap_or_default()
+                .build(&container_build_params)?,
             volumes: overrides.volumes.unwrap_or_default(),
             volumeMounts: overrides.volume_mounts.unwrap_or_default(),
             persistentVolumes: overrides.persistent_volumes.unwrap_or_default(),
-            cronJobs: overrides.cron_jobs.unwrap_or_default().build(&container_build_params)?,
-            jobs: overrides.jobs.unwrap_or_default().build(&container_build_params)?,
+            cronJobs: overrides
+                .cron_jobs
+                .unwrap_or_default()
+                .build(&container_build_params)?,
+            jobs: overrides
+                .jobs
+                .unwrap_or_default()
+                .build(&container_build_params)?,
             serviceAnnotations: overrides.service_annotations,
             labels: overrides.labels.build(&())?,
             kong: simple.kong,
@@ -182,11 +199,14 @@ impl ManifestSource {
             image: Some(self.build_image(&base.name)?),
 
             version: overrides.version.build(&())?,
-            kong: defaults.kong.build(&KongBuildParams {
-                service: base.name.to_string(),
-                region: region.clone(),
-                hosts: overrides.hosts,
-            })?.unwrap_or(None),
+            kong: defaults
+                .kong
+                .build(&KongBuildParams {
+                    service: base.name.to_string(),
+                    region: region.clone(),
+                    hosts: overrides.hosts,
+                })?
+                .unwrap_or(None),
 
             base,
         })

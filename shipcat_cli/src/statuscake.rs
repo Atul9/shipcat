@@ -1,5 +1,5 @@
+use super::{Config, Region, Result};
 use shipcat_definitions::structs::Kong;
-use super::{Result, Region, Config};
 
 /// One Statuscake object
 #[derive(Serialize)]
@@ -23,18 +23,18 @@ impl StatuscakeTest {
         let website_url = if let Some(host) = kong.hosts.first() {
             Some(format!("https://{}/health", host))
         } else if let Some(uris) = kong.uris {
-            Some(format!("{}/status/{}/health",
-                    external_svc,
-                    uris.trim_start_matches("/")))
+            Some(format!(
+                "{}/status/{}/health",
+                external_svc,
+                uris.trim_start_matches("/")
+            ))
         } else {
             // No host, no uri, what's going on?
             None
         };
 
         // Generate tags, both regional and environment
-        let mut test_tags = format!("{},{}",
-            region.name,
-            region.environment.to_string());
+        let mut test_tags = format!("{},{}", region.name, region.environment.to_string());
 
         // Process extra region-specific config
         // Set the Contact group if available
@@ -69,22 +69,25 @@ fn generate_statuscake_output(conf: &Config, region: &Region) -> Result<Vec<Stat
             if let Some(k) = mf.kong.clone() {
                 debug!("{:?} has a kong configuration, adding", mf);
                 tests.push(StatuscakeTest::new(
-                        region,
-                        mf.base.name.to_string(),
-                        external_svc.to_string(),
-                        k));
+                    region,
+                    mf.base.name.to_string(),
+                    external_svc.to_string(),
+                    k,
+                ));
             } else {
                 debug!("{:?} has no kong configuration, skipping", mf);
             }
         }
-        // Extra APIs - let's not monitor them for now (too complex)
+    // Extra APIs - let's not monitor them for now (too complex)
 
-        //for (name, api) in region.kong.extra_apis.clone() {
-        //    apis.insert(name, api);
-        //}
-
+    //for (name, api) in region.kong.extra_apis.clone() {
+    //    apis.insert(name, api);
+    //}
     } else {
-        bail!("base_url.external_services is not defined for region {}", region.name);
+        bail!(
+            "base_url.external_services is not defined for region {}",
+            region.name
+        );
     }
 
     Ok(tests)
